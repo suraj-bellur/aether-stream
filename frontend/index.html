@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamHub - Personal Video Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="navbar">
+    <div class="container navbar-content">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span class="logo-text">StreamHub</span>
+        <span class="badge" id="video-count-badge">0 Videos</span>
+      </div>
+
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="search-input" placeholder="Search videos by title..." />
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container main-layout">
+    <!-- Hero Banner -->
+    <section class="hero-banner">
+      <h1>Your Personal Video Library</h1>
+      <p>High-definition streaming directly from your local VM storage.</p>
+    </section>
+
+    <!-- Video Grid Section -->
+    <section class="video-grid-container">
+      <div id="loading-spinner" class="spinner-wrapper">
+        <div class="spinner"></div>
+        <p>Scanning and loading videos...</p>
+      </div>
+
+      <div id="no-videos-msg" class="empty-state hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+          <line x1="7" y1="2" x2="7" y2="22"></line>
+          <line x1="17" y1="2" x2="17" y2="22"></line>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+        </svg>
+        <h3>No Videos Found</h3>
+        <p>Make sure your video files (.mp4) are placed in the mounted video directory.</p>
+      </div>
+
+      <div id="video-grid" class="video-grid"></div>
+    </section>
+  </main>
+
+  <!-- Video Player Modal -->
+  <div id="player-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-video-title">Video Title</h3>
+        <button id="modal-close-btn" class="close-btn" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="player-wrapper">
+        <video id="video-player" controls preload="metadata">
+          Your browser does not support HTML5 video streaming.
+        </video>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
