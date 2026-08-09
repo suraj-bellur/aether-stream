@@ -89,10 +89,7 @@ def get_video_list():
                 file_size = os.path.getsize(full_path)
                 file_hash = get_file_hash(rel_path)
                 
-                # Generate thumbnail asynchronously or during scan
                 thumb_filename = f"{file_hash}.jpg"
-                thumb_path = os.path.join(THUMBNAIL_DIR, thumb_filename)
-                generate_thumbnail(full_path, thumb_path)
 
                 # Pretty title: cleanup filename
                 title = os.path.splitext(file)[0].replace('_', ' ').replace('-', ' ')
@@ -103,7 +100,7 @@ def get_video_list():
                     "title": title,
                     "size_bytes": file_size,
                     "formatted_size": format_size(file_size),
-                    "thumbnail_url": f"/api/thumbnails/{thumb_filename}",
+                    "thumbnail_url": f"/api/thumbnail/{rel_path}",
                     "stream_url": f"/api/stream/{rel_path}"
                 })
     return videos
@@ -111,17 +108,29 @@ def get_video_list():
 
 @app.get("/api/videos")
 def list_videos():
-    """Endpoint returning all available videos and metadata."""
+    """Endpoint returning all available videos and metadata instantly."""
     return get_video_list()
 
 
-@app.get("/api/thumbnails/{thumb_name}")
-def get_thumbnail(thumb_name: str):
-    """Serve cached thumbnail image."""
-    thumb_path = os.path.join(THUMBNAIL_DIR, thumb_name)
+@app.get("/api/thumbnail/{video_path:path}")
+def get_thumbnail(video_path: str):
+    """Serve cached thumbnail image, generating it on-demand if missing."""
+    full_path = os.path.join(VIDEO_DIR, video_path)
+    if not os.path.exists(full_path):
+        raise HTTPException(status_code=404, detail="Video file not found")
+        
+    file_hash = get_file_hash(video_path)
+    thumb_filename = f"{file_hash}.jpg"
+    thumb_path = os.path.join(THUMBNAIL_DIR, thumb_filename)
+    
+    if not os.path.exists(thumb_path):
+        generate_thumbnail(full_path, thumb_path)
+
     if os.path.exists(thumb_path):
         return FileResponse(thumb_path, media_type="image/jpeg")
-    raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    raise HTTPException(status_code=404, detail="Thumbnail could not be generated")
+
 
 
 @app.get("/api/stream/{video_path:path}")
