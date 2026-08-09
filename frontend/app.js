@@ -218,22 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      // 3D Tilt Parallax Tracking
-      card.addEventListener('mousemove', (e) => {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left - rect.width / 2;
-        const y = e.clientY - rect.top - rect.height / 2;
-
-        const rotateX = (-y / rect.height) * 16;
-        const rotateY = (x / rect.width) * 16;
-
-        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.03)`;
-      });
-
-      card.addEventListener('mouseleave', () => {
-        card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)';
-      });
-
       card.addEventListener('click', () => openPlayer(video));
       videoGrid.appendChild(card);
     });
