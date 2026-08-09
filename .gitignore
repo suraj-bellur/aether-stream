@@ -1,0 +1,23 @@
+# Vagrant
+.vagrant/
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.cache/
+
+# Node / React / Frontend
+node_modules/
+dist/
+build/
+.npm
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
