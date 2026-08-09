@@ -48,7 +48,7 @@ def generate_thumbnail(video_path: str, thumbnail_path: str) -> bool:
             "-i", video_path,
             "-vframes", "1",
             "-q:v", "2",
-            "-vf", "scale=480:-1",
+            "-vf", "scale=720:-1",
             thumbnail_path,
             "-y"
         ]

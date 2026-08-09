@@ -147,7 +147,7 @@ body {
 
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 24px;
 }
 
@@ -172,7 +172,7 @@ body {
 .thumbnail-wrapper {
   position: relative;
   width: 100%;
-  padding-top: 56.25%; /* 16:9 Aspect Ratio */
+  padding-top: 125%; /* 4:5 Portrait Poster Aspect Ratio */
   background: #0f1422;
   overflow: hidden;
 }
