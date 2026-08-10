@@ -43,7 +43,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: video-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
+    command: tunnel --no-autoupdate run --url http://nginx:80
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
     depends_on:
