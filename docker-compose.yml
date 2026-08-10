@@ -38,5 +38,17 @@ services:
       - frontend
     restart: unless-stopped
 
+  # Microservice 4: Cloudflare Tunnel Gateway (Secure remote access for your-public-hostname)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: video-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - nginx
+
 volumes:
   thumbnail-cache:
+
