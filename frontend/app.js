@@ -1,219 +1,188 @@
+/**
+ * AETHER STREAM - Modern Cinema Experience Logic (Optimized for High-Speed Streaming)
+ */
 document.addEventListener('DOMContentLoaded', () => {
-  // Elements
-  const videoGrid = document.getElementById('video-grid');
-  const loadingSpinner = document.getElementById('loading-spinner');
-  const noVideosMsg = document.getElementById('no-videos-msg');
-  const videoCountBadge = document.getElementById('video-count-badge');
+  // DOM Elements
   const searchInput = document.getElementById('search-input');
-  const orbitalCarousel = document.getElementById('orbital-carousel');
-  const orbPrev = document.getElementById('orb-prev');
-  const orbNext = document.getElementById('orb-next');
-  const orbDots = document.getElementById('orb-dots');
+  const clearSearchBtn = document.getElementById('clear-search-btn');
+  const videoCountText = document.getElementById('video-count-text');
+  
+  // Hero Elements
+  const heroSection = document.getElementById('hero-section');
+  const heroTitle = document.getElementById('hero-title');
+  const heroBackdrop = document.getElementById('hero-backdrop');
+  const heroSizeBadge = document.getElementById('hero-size-badge');
+  const heroPlayBtn = document.getElementById('hero-play-btn');
+  
+  // Grid & States
+  const skeletonGrid = document.getElementById('skeleton-grid');
+  const videoGrid = document.getElementById('video-grid');
+  const emptyState = document.getElementById('empty-state');
+  const emptyTitle = document.getElementById('empty-title');
+  const emptyDesc = document.getElementById('empty-desc');
+  const filterPills = document.getElementById('filter-pills');
 
-  // Modal Elements
+  // Modal Player Elements
   const playerModal = document.getElementById('player-modal');
-  const videoPlayer = document.getElementById('video-player');
+  const mainVideoPlayer = document.getElementById('main-video-player');
   const modalVideoTitle = document.getElementById('modal-video-title');
   const modalCloseBtn = document.getElementById('modal-close-btn');
+  const upNextList = document.getElementById('up-next-list');
+  const upNextCount = document.getElementById('up-next-count');
 
+  // App State
   let allVideos = [];
-  let currentOrbIndex = 0;
-  let orbitalVideos = [];
+  let currentFilteredVideos = [];
+  let activeFilter = 'all';
+  let currentVideo = null;
 
   // ==========================================
-  // 1. STARFIELD BACKGROUND ANIMATION CANVAS
+  // 1. FETCH & INITIALIZATION
   // ==========================================
-  function initStarfield() {
-    const canvas = document.getElementById('starfield-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-
-    window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
-
-    const stars = Array.from({ length: 90 }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      size: Math.random() * 1.8 + 0.4,
-      speed: Math.random() * 0.4 + 0.1,
-      opacity: Math.random() * 0.7 + 0.3
-    }));
-
-    function animate() {
-      ctx.clearRect(0, 0, width, height);
-      stars.forEach(star => {
-        star.y -= star.speed;
-        if (star.y < 0) star.y = height;
-
-        ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      requestAnimationFrame(animate);
-    }
-    animate();
-  }
-  initStarfield();
-
-  // ==========================================
-  // 2. FETCH VIDEOS & INITIALIZATION
-  // ==========================================
-  async function loadVideos() {
+  async function fetchVideos() {
     try {
       const response = await fetch('/api/videos');
-      if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       allVideos = await response.json();
 
-      loadingSpinner.classList.add('hidden');
-      videoCountBadge.textContent = `${allVideos.length} VIDEOS`;
-
-      if (allVideos.length === 0) {
-        noVideosMsg.classList.remove('hidden');
-      } else {
-        renderVideos(allVideos);
-        setupOrbitalCarousel(allVideos.slice(0, 7));
+      skeletonGrid.classList.add('hidden');
+      
+      if (!allVideos || allVideos.length === 0) {
+        showEmptyState('No Videos Found', 'Please add .mp4 video files into your server directory.');
+        videoCountText.textContent = '0 Videos';
+        return;
       }
+
+      videoCountText.textContent = `${allVideos.length} ${allVideos.length === 1 ? 'Video' : 'Videos'}`;
+      
+      // Setup Featured Spotlight Video (First Video)
+      setupHeroSpotlight(allVideos[0]);
+
+      // Apply initial filter & render grid
+      applyFilters();
     } catch (error) {
       console.error('Failed to load videos:', error);
-      loadingSpinner.classList.add('hidden');
-      noVideosMsg.classList.remove('hidden');
+      skeletonGrid.classList.add('hidden');
+      showEmptyState('Connection Failed', 'Could not reach streaming backend server.');
+      videoCountText.textContent = 'Offline';
     }
   }
 
   // ==========================================
-  // 3. 3D ORBITAL CAROUSEL STAGE
+  // 2. HERO SPOTLIGHT BANNER
   // ==========================================
-  function setupOrbitalCarousel(items) {
-    if (!items || items.length === 0) return;
-    orbitalVideos = items;
-    orbitalCarousel.innerHTML = '';
-    orbDots.innerHTML = '';
+  function setupHeroSpotlight(video) {
+    if (!video) return;
+    heroTitle.textContent = video.title;
+    heroSizeBadge.textContent = video.formatted_size || 'HD';
+    
+    if (video.thumbnail_url) {
+      heroBackdrop.style.backgroundImage = `url('${video.thumbnail_url}')`;
+    } else {
+      heroBackdrop.style.background = 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)';
+    }
 
-    const total = items.length;
-    const radius = 380; // 3D Ring Radius
-
-    items.forEach((video, index) => {
-      // 3D Item Panel
-      const orbItem = document.createElement('div');
-      orbItem.className = 'orb-item';
-      orbItem.dataset.index = index;
-
-      orbItem.innerHTML = `
-        <img src="${video.thumbnail_url}" alt="${video.title}" 
-             onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100%\\' height=\\'100%\\' fill=\\'%23151c2c\\'><text x=\\'50%\\' y=\\'50%\\' fill=\\'%2394a3b8\\' text-anchor=\\'middle\\'>Stream</text></svg>';"/>
-        <div class="orb-info">
-          <h4 title="${video.title}">${video.title}</h4>
-          <span>STREAM ID #${video.id.substring(0, 6)}</span>
-        </div>
-      `;
-
-      orbItem.addEventListener('click', () => {
-        if (index === currentOrbIndex) {
-          openPlayer(video);
-        } else {
-          currentOrbIndex = index;
-          updateOrbitalPosition();
-        }
-      });
-
-      orbitalCarousel.appendChild(orbItem);
-
-      // Dot Navigation
-      const dot = document.createElement('div');
-      dot.className = `orb-dot ${index === 0 ? 'active' : ''}`;
-      dot.addEventListener('click', () => {
-        currentOrbIndex = index;
-        updateOrbitalPosition();
-      });
-      orbDots.appendChild(dot);
-    });
-
-    updateOrbitalPosition();
+    heroPlayBtn.onclick = () => openPlayer(video);
+    heroSection.classList.remove('hidden');
   }
 
-  function updateOrbitalPosition() {
-    const orbItems = document.querySelectorAll('.orb-item');
-    const dots = document.querySelectorAll('.orb-dot');
-    const total = orbItems.length;
-    if (total === 0) return;
+  // ==========================================
+  // 3. FILTERING & SEARCH LOGIC
+  // ==========================================
+  function applyFilters() {
+    let result = [...allVideos];
+    const query = searchInput.value.trim().toLowerCase();
 
-    const angleStep = 360 / total;
+    // 1. Search Query Filter
+    if (query) {
+      result = result.filter(v => v.title.toLowerCase().includes(query));
+      clearSearchBtn.classList.remove('hidden');
+    } else {
+      clearSearchBtn.classList.add('hidden');
+    }
 
-    orbItems.forEach((item, index) => {
-      const offset = index - currentOrbIndex;
-      const angle = offset * angleStep;
-      
-      // Calculate 3D transformation around orbital ring
-      const transformStr = `rotateY(${angle}deg) translateZ(360px)`;
-      item.style.transform = transformStr;
-      item.style.opacity = Math.abs(offset) > 2 ? '0.2' : '1';
+    // 2. Category Pill Filter
+    if (activeFilter === 'recent') {
+      result = [...result].reverse();
+    } else if (activeFilter === 'large') {
+      // Filter videos > 500MB (524,288,000 bytes)
+      result = result.filter(v => (v.size_bytes || 0) > 500 * 1024 * 1024);
+    }
 
-      if (index === currentOrbIndex) {
-        item.classList.add('active');
-      } else {
-        item.classList.remove('active');
-      }
-    });
+    currentFilteredVideos = result;
+    renderGrid(currentFilteredVideos);
+  }
 
-    dots.forEach((dot, index) => {
-      dot.classList.toggle('active', index === currentOrbIndex);
+  // Filter Pills Event Listeners
+  if (filterPills) {
+    filterPills.querySelectorAll('.pill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterPills.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        applyFilters();
+      });
     });
   }
 
-  orbPrev.addEventListener('click', () => {
-    if (orbitalVideos.length === 0) return;
-    currentOrbIndex = (currentOrbIndex - 1 + orbitalVideos.length) % orbitalVideos.length;
-    updateOrbitalPosition();
+  // Search Input Listener
+  searchInput.addEventListener('input', applyFilters);
+  clearSearchBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    applyFilters();
+    searchInput.focus();
   });
 
-  orbNext.addEventListener('click', () => {
-    if (orbitalVideos.length === 0) return;
-    currentOrbIndex = (currentOrbIndex + 1) % orbitalVideos.length;
-    updateOrbitalPosition();
+  // Keyboard shortcut '/'
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== searchInput) {
+      e.preventDefault();
+      searchInput.focus();
+    }
   });
 
   // ==========================================
-  // 4. 3D PARALLAX TILT VIDEO GRID CARDS
+  // 4. RENDER RESPONSIVE VIDEO GRID
   // ==========================================
-  function renderVideos(videos) {
+  function renderGrid(videos) {
     videoGrid.innerHTML = '';
+    
     if (videos.length === 0) {
-      noVideosMsg.classList.remove('hidden');
+      videoGrid.classList.add('hidden');
+      showEmptyState('No Matching Videos', 'Try searching for another keyword or change your filter.');
       return;
     }
-    noVideosMsg.classList.add('hidden');
+
+    emptyState.classList.add('hidden');
+    videoGrid.classList.remove('hidden');
 
     videos.forEach(video => {
-      const card = document.createElement('div');
+      const card = document.createElement('article');
       card.className = 'video-card';
 
       card.innerHTML = `
-        <div class="thumbnail-wrapper">
-          <img class="thumbnail-img" src="${video.thumbnail_url}" alt="${video.title}"
-               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
-          <div class="fallback-thumb" style="display:none; position:absolute; inset:0; align-items:center; justify-content:center; background:#090d16; color:#94a3b8;">
-            <svg style="width:40px;height:40px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <div class="card-thumb-wrapper">
+          <img class="card-thumb-img" src="${video.thumbnail_url}" alt="${video.title}" loading="lazy"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="thumb-fallback" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
           </div>
-          <div class="play-overlay">
-            <div class="play-btn-glow">
+          <div class="play-overlay-glow">
+            <div class="play-circle-btn">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
             </div>
           </div>
+          <span class="card-size-badge">${video.formatted_size || 'MP4'}</span>
         </div>
-        <div class="card-body">
-          <h4 class="card-title" title="${video.title}">${video.title}</h4>
-          <div class="card-footer">
-            <span class="size-tag">${video.formatted_size}</span>
+        <div class="card-body-content">
+          <h3 class="card-title-text" title="${video.title}">${video.title}</h3>
+          <div class="card-footer-meta">
+            <span>Local Stream</span>
+            <span>HD</span>
           </div>
         </div>
       `;
@@ -223,46 +192,105 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Live search filtering
-  searchInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    const filtered = allVideos.filter(v => v.title.toLowerCase().includes(query));
-    renderVideos(filtered);
-  });
-
-  // Keyboard shortcut '/' to search
-  document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement !== searchInput) {
-      e.preventDefault();
-      searchInput.focus();
-    }
-  });
+  function showEmptyState(title, desc) {
+    emptyTitle.textContent = title;
+    emptyDesc.textContent = desc;
+    emptyState.classList.remove('hidden');
+  }
 
   // ==========================================
-  // 5. MODAL PLAYER CONTROLS
+  // 5. CINEMA MODAL PLAYER & PLAYLIST (HIGH PERFORMANCE)
   // ==========================================
   function openPlayer(video) {
+    currentVideo = video;
     modalVideoTitle.textContent = video.title;
-    videoPlayer.src = video.stream_url;
+    
+    // 1. Instantly set stream URL and play video FIRST (Highest Priority for Instant Start)
+    mainVideoPlayer.src = video.stream_url;
     playerModal.classList.remove('hidden');
-    videoPlayer.play().catch(e => console.log('Autoplay handled:', e));
+    document.body.style.overflow = 'hidden';
+
+    // Trigger video playback immediately
+    mainVideoPlayer.play().catch(err => {
+      console.log('Autoplay deferred by browser:', err);
+    });
+
+    // 2. Defer rendering the playlist sidebar by 300ms so network sockets prioritize video stream chunks
+    setTimeout(() => {
+      renderUpNextList(allVideos, video.id);
+    }, 300);
   }
 
   function closePlayer() {
-    videoPlayer.pause();
-    videoPlayer.removeAttribute('src');
-    videoPlayer.load();
+    mainVideoPlayer.pause();
+    mainVideoPlayer.removeAttribute('src');
+    mainVideoPlayer.load();
     playerModal.classList.add('hidden');
+    document.body.style.overflow = '';
   }
 
+  function renderUpNextList(videos, currentId) {
+    upNextList.innerHTML = '';
+    const otherVideos = videos.filter(v => v.id !== currentId);
+    upNextCount.textContent = `${otherVideos.length} Videos`;
+
+    videos.forEach(video => {
+      const isPlaying = video.id === currentId;
+      const item = document.createElement('div');
+      item.className = `playlist-item ${isPlaying ? 'active-playing' : ''}`;
+
+      item.innerHTML = `
+        <img src="${video.thumbnail_url}" alt="${video.title}" loading="lazy"
+             onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100%\\' height=\\'100%\\' fill=\\'%230f172a\\'></svg>';"/>
+        <div class="playlist-item-info">
+          <h5 class="playlist-item-title">${video.title}</h5>
+          <span class="playlist-item-size">${isPlaying ? '▶ Now Playing' : (video.formatted_size || 'MP4')}</span>
+        </div>
+      `;
+
+      if (!isPlaying) {
+        item.addEventListener('click', () => openPlayer(video));
+      }
+
+      upNextList.appendChild(item);
+    });
+  }
+
+  // Event Listeners for Modal Close
   modalCloseBtn.addEventListener('click', closePlayer);
   playerModal.addEventListener('click', (e) => {
     if (e.target === playerModal) closePlayer();
   });
+
+  // Global Player Keyboard Shortcuts
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !playerModal.classList.contains('hidden')) closePlayer();
+    if (playerModal.classList.contains('hidden')) return;
+
+    if (e.key === 'Escape') {
+      closePlayer();
+    } else if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      if (mainVideoPlayer.paused) mainVideoPlayer.play();
+      else mainVideoPlayer.pause();
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      mainVideoPlayer.currentTime += 5;
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      mainVideoPlayer.currentTime -= 5;
+    } else if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        mainVideoPlayer.requestFullscreen();
+      }
+    } else if (e.key === 'm' || e.key === 'M') {
+      e.preventDefault();
+      mainVideoPlayer.muted = !mainVideoPlayer.muted;
+    }
   });
 
-  // Start app
-  loadVideos();
+  // Run initial fetch
+  fetchVideos();
 });
