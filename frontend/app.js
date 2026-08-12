@@ -1,40 +1,57 @@
 /**
- * AETHER STREAM - Modern Cinema Experience Logic (Optimized for High-Speed Streaming)
+ * AETHER STREAM - Cinematic Experience Logic
  */
 document.addEventListener('DOMContentLoaded', () => {
   // DOM Elements
   const searchInput = document.getElementById('search-input');
+  const searchContainer = document.getElementById('search-container');
   const clearSearchBtn = document.getElementById('clear-search-btn');
+  const navSearchBtn = document.getElementById('nav-search-btn');
+  const navRandomBtn = document.getElementById('nav-random-btn');
   const videoCountText = document.getElementById('video-count-text');
   
   // Hero Elements
   const heroSection = document.getElementById('hero-section');
-  const heroTitle = document.getElementById('hero-title');
   const heroBackdrop = document.getElementById('hero-backdrop');
+  const heroTitle = document.getElementById('hero-title');
   const heroSizeBadge = document.getElementById('hero-size-badge');
+  const heroYearBadge = document.getElementById('hero-year-badge');
   const heroPlayBtn = document.getElementById('hero-play-btn');
   
-  // Grid & States
+  // Grid & Pagination Elements
+  const rowTitle = document.getElementById('row-title');
   const skeletonGrid = document.getElementById('skeleton-grid');
   const videoGrid = document.getElementById('video-grid');
   const emptyState = document.getElementById('empty-state');
-  const emptyTitle = document.getElementById('empty-title');
   const emptyDesc = document.getElementById('empty-desc');
-  const filterPills = document.getElementById('filter-pills');
+
+  const paginationWrapper = document.getElementById('pagination-wrapper');
+  const prevPageBtn = document.getElementById('prev-page-btn');
+  const nextPageBtn = document.getElementById('next-page-btn');
+  const pageNumbers = document.getElementById('page-numbers');
 
   // Modal Player Elements
   const playerModal = document.getElementById('player-modal');
   const mainVideoPlayer = document.getElementById('main-video-player');
-  const modalVideoTitle = document.getElementById('modal-video-title');
   const modalCloseBtn = document.getElementById('modal-close-btn');
-  const upNextList = document.getElementById('up-next-list');
-  const upNextCount = document.getElementById('up-next-count');
+  const modalShuffleBtn = document.getElementById('modal-shuffle-btn');
+
+  // Sidebar Nav Elements
+  const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
 
   // App State
   let allVideos = [];
   let currentFilteredVideos = [];
-  let activeFilter = 'all';
-  let currentVideo = null;
+  let activeFilter = 'all'; // all, recent, large
+  let currentPage = 1;
+  const itemsPerPage = 10;
+  let heroInterval = null;
+
+  function formatDate(mtime) {
+    if (!mtime) return 'Recent';
+    const date = new Date(mtime * 1000);
+    return date.getFullYear().toString();
+  }
 
   // ==========================================
   // 1. FETCH & INITIALIZATION
@@ -48,22 +65,22 @@ document.addEventListener('DOMContentLoaded', () => {
       skeletonGrid.classList.add('hidden');
       
       if (!allVideos || allVideos.length === 0) {
-        showEmptyState('No Videos Found', 'Please add .mp4 video files into your server directory.');
+        showEmptyState('Please add video files into your server directory.');
         videoCountText.textContent = '0 Videos';
         return;
       }
 
       videoCountText.textContent = `${allVideos.length} ${allVideos.length === 1 ? 'Video' : 'Videos'}`;
       
-      // Setup Featured Spotlight Video (First Video)
-      setupHeroSpotlight(allVideos[0]);
+      // Start Hero Rotation
+      startHeroRotation();
 
       // Apply initial filter & render grid
       applyFilters();
     } catch (error) {
       console.error('Failed to load videos:', error);
       skeletonGrid.classList.add('hidden');
-      showEmptyState('Connection Failed', 'Could not reach streaming backend server.');
+      showEmptyState('Could not reach streaming backend server.');
       videoCountText.textContent = 'Offline';
     }
   }
@@ -73,59 +90,103 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   function setupHeroSpotlight(video) {
     if (!video) return;
-    heroTitle.textContent = video.title;
-    heroSizeBadge.textContent = video.formatted_size || 'HD';
+    
+    heroTitle.textContent = video.title || video.filename.split('/').pop().replace(/\.[^/.]+$/, "");
+    if (heroSizeBadge) heroSizeBadge.textContent = video.formatted_size || 'HD';
+    if (heroYearBadge) heroYearBadge.textContent = formatDate(video.mtime);
     
     if (video.thumbnail_url) {
       heroBackdrop.style.backgroundImage = `url('${video.thumbnail_url}')`;
     } else {
-      heroBackdrop.style.background = 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)';
+      heroBackdrop.style.background = '#181818';
     }
 
     heroPlayBtn.onclick = () => openPlayer(video);
     heroSection.classList.remove('hidden');
   }
 
+  function startHeroRotation() {
+    if (allVideos.length === 0) return;
+    
+    // Pick initial random video
+    setupHeroSpotlight(allVideos[Math.floor(Math.random() * allVideos.length)]);
+    
+    if (heroInterval) clearInterval(heroInterval);
+    heroInterval = setInterval(() => {
+      const randomVideo = allVideos[Math.floor(Math.random() * allVideos.length)];
+      setupHeroSpotlight(randomVideo);
+    }, 15000);
+  }
+
   // ==========================================
-  // 3. FILTERING & SEARCH LOGIC
+  // 3. NAV, FILTERING, SORTING
   // ==========================================
+  
+  // Search toggle
+  navSearchBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    searchContainer.classList.toggle('hidden');
+    if (!searchContainer.classList.contains('hidden')) {
+      searchInput.focus();
+    }
+  });
+
   function applyFilters() {
     let result = [...allVideos];
     const query = searchInput.value.trim().toLowerCase();
 
-    // 1. Search Query Filter
+    // 1. Search Query
     if (query) {
-      result = result.filter(v => v.title.toLowerCase().includes(query));
+      result = result.filter(v => (v.filename || '').toLowerCase().includes(query) || (v.title || '').toLowerCase().includes(query));
       clearSearchBtn.classList.remove('hidden');
+      rowTitle.textContent = `Search Results: "${query}"`;
     } else {
       clearSearchBtn.classList.add('hidden');
-    }
-
-    // 2. Category Pill Filter
-    if (activeFilter === 'recent') {
-      result = [...result].reverse();
-    } else if (activeFilter === 'large') {
-      // Filter videos > 500MB (524,288,000 bytes)
-      result = result.filter(v => (v.size_bytes || 0) > 500 * 1024 * 1024);
+      
+      // 2. Category Pill Filter
+      if (activeFilter === 'recent') {
+        result.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+        rowTitle.textContent = "Recently Added";
+      } else if (activeFilter === 'large') {
+        result = result.filter(v => (v.size_bytes || 0) > 500 * 1024 * 1024);
+        rowTitle.textContent = "Epic Movies (Large Files)";
+      } else {
+        rowTitle.textContent = "Trending Now";
+      }
     }
 
     currentFilteredVideos = result;
-    renderGrid(currentFilteredVideos);
+    currentPage = 1;
+    renderGridPage();
   }
 
-  // Filter Pills Event Listeners
-  if (filterPills) {
-    filterPills.querySelectorAll('.pill-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        filterPills.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+  // Sidebar Nav Event Listeners
+  navItems.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.id === 'nav-search-btn' || btn.id === 'nav-random-btn') return;
+      
+      navItems.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      if (btn.dataset.filter) {
         activeFilter = btn.dataset.filter;
+        searchInput.value = '';
+        searchContainer.classList.add('hidden');
         applyFilters();
-      });
+      }
+    });
+  });
+
+  if (navRandomBtn) {
+    navRandomBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (allVideos.length > 0) {
+        const randomVideo = allVideos[Math.floor(Math.random() * allVideos.length)];
+        openPlayer(randomVideo);
+      }
     });
   }
 
-  // Search Input Listener
   searchInput.addEventListener('input', applyFilters);
   clearSearchBtn.addEventListener('click', () => {
     searchInput.value = '';
@@ -133,92 +194,145 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.focus();
   });
 
-  // Keyboard shortcut '/'
-  document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement !== searchInput) {
-      e.preventDefault();
-      searchInput.focus();
-    }
-  });
-
   // ==========================================
-  // 4. RENDER RESPONSIVE VIDEO GRID
+  // 4. RENDER PAGINATED GRID
   // ==========================================
-  function renderGrid(videos) {
+  function renderGridPage() {
     videoGrid.innerHTML = '';
     
-    if (videos.length === 0) {
+    if (currentFilteredVideos.length === 0) {
       videoGrid.classList.add('hidden');
-      showEmptyState('No Matching Videos', 'Try searching for another keyword or change your filter.');
+      paginationWrapper.classList.add('hidden');
+      showEmptyState('No titles found for your selection.');
       return;
     }
 
     emptyState.classList.add('hidden');
     videoGrid.classList.remove('hidden');
 
-    videos.forEach(video => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, currentFilteredVideos.length);
+    const pageVideos = currentFilteredVideos.slice(startIndex, endIndex);
+
+    pageVideos.forEach(video => {
       const card = document.createElement('article');
       card.className = 'video-card';
 
       card.innerHTML = `
-        <div class="card-thumb-wrapper">
-          <img class="card-thumb-img" src="${video.thumbnail_url}" alt="${video.title}" loading="lazy"
-               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-          <div class="thumb-fallback" style="display:none;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
+        <img class="card-thumb-img" src="${video.thumbnail_url}" alt="Video preview" loading="lazy" />
+        <div class="card-info-overlay">
+          <div class="play-circle-small">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
           </div>
-          <div class="play-overlay-glow">
-            <div class="play-circle-btn">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
-            </div>
-          </div>
-          <span class="card-size-badge">${video.formatted_size || 'MP4'}</span>
-        </div>
-        <div class="card-body-content">
-          <h3 class="card-title-text" title="${video.title}">${video.title}</h3>
-          <div class="card-footer-meta">
-            <span>Local Stream</span>
-            <span>HD</span>
-          </div>
+          <span class="card-meta-row">
+            <span class="card-match">98% Match</span> 
+            ${formatDate(video.mtime)} 
+            <span class="maturity-rating">HD</span>
+          </span>
         </div>
       `;
 
       card.addEventListener('click', () => openPlayer(video));
       videoGrid.appendChild(card);
     });
+
+    renderPaginationControls();
   }
 
-  function showEmptyState(title, desc) {
-    emptyTitle.textContent = title;
+  // Smart Pagination with Ellipsis
+  function renderPaginationControls() {
+    const totalPages = Math.ceil(currentFilteredVideos.length / itemsPerPage);
+
+    if (totalPages <= 1) {
+      paginationWrapper.classList.add('hidden');
+      return;
+    }
+
+    paginationWrapper.classList.remove('hidden');
+    prevPageBtn.disabled = currentPage === 1;
+    nextPageBtn.disabled = currentPage === totalPages;
+
+    pageNumbers.innerHTML = '';
+
+    // Logic for 1 ... 4 5 6 ... 85
+    const maxVisibleBtns = 5;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + maxVisibleBtns - 1);
+    
+    if (endPage - startPage < maxVisibleBtns - 1) {
+      startPage = Math.max(1, endPage - maxVisibleBtns + 1);
+    }
+
+    if (startPage > 1) {
+      pageNumbers.appendChild(createPageBtn(1));
+      if (startPage > 2) {
+        const ell = document.createElement('span');
+        ell.className = 'page-ellipsis';
+        ell.textContent = '...';
+        pageNumbers.appendChild(ell);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.appendChild(createPageBtn(i));
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        const ell = document.createElement('span');
+        ell.className = 'page-ellipsis';
+        ell.textContent = '...';
+        pageNumbers.appendChild(ell);
+      }
+      pageNumbers.appendChild(createPageBtn(totalPages));
+    }
+  }
+
+  function createPageBtn(pageNum) {
+    const btn = document.createElement('button');
+    btn.className = `page-num-btn ${pageNum === currentPage ? 'active' : ''}`;
+    btn.textContent = pageNum;
+    btn.addEventListener('click', () => {
+      currentPage = pageNum;
+      renderGridPage();
+      window.scrollTo({ top: rowTitle.offsetTop - 100, behavior: 'smooth' });
+    });
+    return btn;
+  }
+
+  prevPageBtn.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage--;
+      renderGridPage();
+      window.scrollTo({ top: rowTitle.offsetTop - 100, behavior: 'smooth' });
+    }
+  });
+
+  nextPageBtn.addEventListener('click', () => {
+    const totalPages = Math.ceil(currentFilteredVideos.length / itemsPerPage);
+    if (currentPage < totalPages) {
+      currentPage++;
+      renderGridPage();
+      window.scrollTo({ top: rowTitle.offsetTop - 100, behavior: 'smooth' });
+    }
+  });
+
+  function showEmptyState(desc) {
     emptyDesc.textContent = desc;
     emptyState.classList.remove('hidden');
   }
 
   // ==========================================
-  // 5. CINEMA MODAL PLAYER & PLAYLIST (HIGH PERFORMANCE)
+  // 5. CINEMA MODAL PLAYER
   // ==========================================
   function openPlayer(video) {
-    currentVideo = video;
-    modalVideoTitle.textContent = video.title;
-    
-    // 1. Instantly set stream URL and play video FIRST (Highest Priority for Instant Start)
     mainVideoPlayer.src = video.stream_url;
     playerModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 
-    // Trigger video playback immediately
     mainVideoPlayer.play().catch(err => {
       console.log('Autoplay deferred by browser:', err);
     });
-
-    // 2. Defer rendering the playlist sidebar by 300ms so network sockets prioritize video stream chunks
-    setTimeout(() => {
-      renderUpNextList(allVideos, video.id);
-    }, 300);
   }
 
   function closePlayer() {
@@ -229,45 +343,26 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.style.overflow = '';
   }
 
-  function renderUpNextList(videos, currentId) {
-    upNextList.innerHTML = '';
-    const otherVideos = videos.filter(v => v.id !== currentId);
-    upNextCount.textContent = `${otherVideos.length} Videos`;
-
-    videos.forEach(video => {
-      const isPlaying = video.id === currentId;
-      const item = document.createElement('div');
-      item.className = `playlist-item ${isPlaying ? 'active-playing' : ''}`;
-
-      item.innerHTML = `
-        <img src="${video.thumbnail_url}" alt="${video.title}" loading="lazy"
-             onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100%\\' height=\\'100%\\' fill=\\'%230f172a\\'></svg>';"/>
-        <div class="playlist-item-info">
-          <h5 class="playlist-item-title">${video.title}</h5>
-          <span class="playlist-item-size">${isPlaying ? '▶ Now Playing' : (video.formatted_size || 'MP4')}</span>
-        </div>
-      `;
-
-      if (!isPlaying) {
-        item.addEventListener('click', () => openPlayer(video));
+  modalCloseBtn.addEventListener('click', closePlayer);
+  
+  if (modalShuffleBtn) {
+    modalShuffleBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // prevent modal click from closing
+      if (allVideos.length > 0) {
+        const randomVideo = allVideos[Math.floor(Math.random() * allVideos.length)];
+        openPlayer(randomVideo);
       }
-
-      upNextList.appendChild(item);
     });
   }
 
-  // Event Listeners for Modal Close & Protection
-  modalCloseBtn.addEventListener('click', closePlayer);
   playerModal.addEventListener('click', (e) => {
     if (e.target === playerModal) closePlayer();
   });
 
-  // Prevent right-click context menu on video player ("Save Video As...")
   mainVideoPlayer.addEventListener('contextmenu', (e) => {
     e.preventDefault();
   });
 
-  // Global Player Keyboard Shortcuts
   document.addEventListener('keydown', (e) => {
     if (playerModal.classList.contains('hidden')) return;
 

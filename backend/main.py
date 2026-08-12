@@ -1,4 +1,5 @@
 import os
+import time
 import subprocess
 import hashlib
 from typing import Optional
@@ -38,24 +39,24 @@ def get_file_hash(filename: str) -> str:
 
 
 def generate_thumbnail(video_path: str, thumbnail_path: str) -> bool:
-    """Extract a thumbnail frame at 5 seconds using FFmpeg."""
+    """Extract 3 frames at 5s, 10s, and 15s and stack them vertically as a collage using FFmpeg."""
     if os.path.exists(thumbnail_path):
         return True
     try:
         command = [
             "ffmpeg",
-            "-ss", "00:00:05",
-            "-i", video_path,
-            "-vframes", "1",
-            "-q:v", "2",
-            "-vf", "scale=720:-1",
+            "-ss", "00:00:05", "-i", video_path,
+            "-ss", "00:00:10", "-i", video_path,
+            "-ss", "00:00:15", "-i", video_path,
+            "-filter_complex", "[0:v]scale=480:-1[v0];[1:v]scale=480:-1[v1];[2:v]scale=480:-1[v2];[v0][v1][v2]vstack=inputs=3",
+            "-q:v", "3",
             thumbnail_path,
             "-y"
         ]
         result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return result.returncode == 0
     except Exception as e:
-        print(f"Error generating thumbnail for {video_path}: {e}")
+        print(f"Error generating thumbnail collage for {video_path}: {e}")
         return False
 
 
@@ -73,8 +74,19 @@ def health_check():
     return {"status": "ok", "video_dir": VIDEO_DIR, "videos_found": len(get_video_list())}
 
 
+# Cache for video list to avoid scanning the filesystem on every request
+_video_cache = {
+    "timestamp": 0,
+    "data": []
+}
+CACHE_TTL_SECONDS = 300  # 5 minutes
+
 def get_video_list():
-    """Scan VIDEO_DIR for supported video formats."""
+    """Scan VIDEO_DIR for supported video formats and metadata."""
+    global _video_cache
+    if time.time() - _video_cache["timestamp"] < CACHE_TTL_SECONDS:
+        return _video_cache["data"]
+
     supported_extensions = ('.mp4', '.mkv', '.webm', '.mov', '.avi')
     videos = []
     
@@ -87,11 +99,9 @@ def get_video_list():
                 rel_path = os.path.relpath(os.path.join(root, file), VIDEO_DIR)
                 full_path = os.path.join(VIDEO_DIR, rel_path)
                 file_size = os.path.getsize(full_path)
+                mtime = os.path.getmtime(full_path)
                 file_hash = get_file_hash(rel_path)
                 
-                thumb_filename = f"{file_hash}.jpg"
-
-                # Pretty title: cleanup filename
                 title = os.path.splitext(file)[0].replace('_', ' ').replace('-', ' ')
                 
                 videos.append({
@@ -100,9 +110,13 @@ def get_video_list():
                     "title": title,
                     "size_bytes": file_size,
                     "formatted_size": format_size(file_size),
+                    "mtime": mtime,
                     "thumbnail_url": f"/api/thumbnail/{rel_path}",
                     "stream_url": f"/api/stream/{rel_path}"
                 })
+                
+    _video_cache["data"] = videos
+    _video_cache["timestamp"] = time.time()
     return videos
 
 
@@ -114,13 +128,13 @@ def list_videos():
 
 @app.get("/api/thumbnail/{video_path:path}")
 def get_thumbnail(video_path: str):
-    """Serve cached thumbnail image, generating it on-demand if missing."""
+    """Serve cached 3-frame collage thumbnail image, generating it on-demand if missing."""
     full_path = os.path.join(VIDEO_DIR, video_path)
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="Video file not found")
         
     file_hash = get_file_hash(video_path)
-    thumb_filename = f"{file_hash}.jpg"
+    thumb_filename = f"{file_hash}_collage3.jpg"
     thumb_path = os.path.join(THUMBNAIL_DIR, thumb_filename)
     
     if not os.path.exists(thumb_path):
@@ -174,8 +188,8 @@ def stream_video(video_path: str, request: Request):
                 headers=headers
             )
 
-        # Limit chunk size to 2MB for responsive streaming
-        chunk_size = 2 * 1024 * 1024
+        # Limit chunk size to 20MB to reduce HTTP request overhead
+        chunk_size = 20 * 1024 * 1024
         end = min(end, start + chunk_size - 1)
         content_length = (end - start) + 1
 
@@ -184,7 +198,8 @@ def stream_video(video_path: str, request: Request):
                 video_file.seek(start_pos)
                 bytes_left = count
                 while bytes_left > 0:
-                    read_bytes = min(64 * 1024, bytes_left)
+                    # Read in 1MB chunks to reduce generator overhead
+                    read_bytes = min(1024 * 1024, bytes_left)
                     data = video_file.read(read_bytes)
                     if not data:
                         break
