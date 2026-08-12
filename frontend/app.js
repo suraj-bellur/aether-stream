@@ -256,10 +256,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Event Listeners for Modal Close
+  // Event Listeners for Modal Close & Protection
   modalCloseBtn.addEventListener('click', closePlayer);
   playerModal.addEventListener('click', (e) => {
     if (e.target === playerModal) closePlayer();
+  });
+
+  // Prevent right-click context menu on video player ("Save Video As...")
+  mainVideoPlayer.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
   });
 
   // Global Player Keyboard Shortcuts
