@@ -4,7 +4,7 @@ import subprocess
 import hashlib
 from typing import Optional
 # pyrefly: ignore [missing-import]
-from fastapi import FastAPI, Request, HTTPException, status
+from fastapi import FastAPI, Request, Response, HTTPException, status
 # pyrefly: ignore [missing-import]
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 # pyrefly: ignore [missing-import]
@@ -26,6 +26,8 @@ app.add_middleware(
 VIDEO_DIR = os.getenv("VIDEO_DIR", "/media/videos")
 CACHE_DIR = os.getenv("CACHE_DIR", "/app/cache")
 THUMBNAIL_DIR = os.path.join(CACHE_DIR, "thumbnails")
+SITE_PASSWORD = os.getenv("SITE_PASSWORD", "aether2026")
+AUTH_COOKIE_NAME = "aether_auth"
 
 # Ensure cache directories exist
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
@@ -72,6 +74,31 @@ def format_size(size_in_bytes: int) -> str:
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "video_dir": VIDEO_DIR, "videos_found": len(get_video_list())}
+
+@app.post("/api/login")
+async def login(request: Request, response: Response):
+    try:
+        data = await request.json()
+        if data.get("password") == SITE_PASSWORD:
+            response.set_cookie(
+                key=AUTH_COOKIE_NAME,
+                value=SITE_PASSWORD,
+                httponly=True,
+                path="/"
+            )
+            return {"status": "success"}
+    except:
+        pass
+    raise HTTPException(status_code=401, detail="Invalid password")
+
+@app.get("/api/auth_check")
+def auth_check(request: Request):
+    """Endpoint for Nginx auth_request module to verify cookie."""
+    token = request.cookies.get(AUTH_COOKIE_NAME)
+    if token == SITE_PASSWORD:
+        return Response(status_code=200)
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
 
 
 # Cache for video list to avoid scanning the filesystem on every request

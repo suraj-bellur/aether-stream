@@ -10,9 +10,13 @@ services:
     environment:
       - VIDEO_DIR=/media/videos
       - CACHE_DIR=/app/cache
+    env_file:
+      - .env
     volumes:
-      # Read-only bind mount of 55GB host video folder mounted inside VM at /media/videos
+      # Read-only bind mount of host video folder
       - /media/videos:/media/videos:ro
+      # Live development mount for Python code
+      - ./backend:/app
       # Named volume for persistent thumbnail cache
       - thumbnail-cache:/app/cache
     restart: unless-stopped
@@ -35,6 +39,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /media/videos:/media/videos:ro
     depends_on:
       - backend
       - frontend

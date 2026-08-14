@@ -308,6 +308,7 @@ body {
   margin-bottom: 32px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -663,6 +664,7 @@ body {
   .hero-synopsis {
     font-size: 1rem;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     margin-bottom: 20px;
   }
   .hero-buttons button {
@@ -729,4 +731,93 @@ body {
     width: 22px;
     height: 22px;
   }
+}
+
+/* ==========================================
+   AUTHENTICATION SCREEN
+   ========================================== */
+.auth-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  background-image: linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.9)), url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23222" fill-opacity="0.4"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+}
+
+.auth-container {
+  background: rgba(20, 20, 20, 0.85);
+  padding: 60px 50px;
+  border-radius: 12px;
+  text-align: center;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
+  width: 90%;
+}
+
+.auth-logo {
+  margin: 0 auto 30px;
+  transform: scale(1.5);
+}
+
+.auth-title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #fff;
+}
+
+.auth-subtitle {
+  color: var(--text-muted);
+  margin-bottom: 30px;
+  font-size: 0.95rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.auth-input {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 16px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1rem;
+  transition: var(--transition-smooth);
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: var(--accent-red);
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.auth-submit {
+  background: var(--accent-red);
+  color: #fff;
+  border: none;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.auth-submit:hover {
+  background: #f40612;
+  transform: translateY(-2px);
+}
+
+.auth-error {
+  color: #e87c03;
+  margin-top: 15px;
+  font-size: 0.9rem;
 }

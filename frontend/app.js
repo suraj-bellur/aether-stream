@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const navSearchBtn = document.getElementById('nav-search-btn');
   const navRandomBtn = document.getElementById('nav-random-btn');
   const videoCountText = document.getElementById('video-count-text');
+
+  // Auth Elements
+  const authScreen = document.getElementById('auth-screen');
+  const mainApp = document.getElementById('main-app');
+  const authForm = document.getElementById('auth-form');
+  const authPassword = document.getElementById('auth-password');
+  const authError = document.getElementById('auth-error');
+  const authSubmitBtn = document.getElementById('auth-submit-btn');
   
   // Hero Elements
   const heroSection = document.getElementById('hero-section');
@@ -58,7 +66,22 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchVideos() {
     try {
       const response = await fetch('/api/videos');
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      
+      if (response.status === 401) {
+        // Show auth screen, hide app
+        authScreen.classList.remove('hidden');
+        mainApp.classList.add('hidden');
+        skeletonGrid.classList.add('hidden');
+        return;
+      }
+      
+      // If we got here, auth is valid or not required. Ensure app is visible.
+      authScreen.classList.add('hidden');
+      mainApp.classList.remove('hidden');
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
       allVideos = await response.json();
 
       skeletonGrid.classList.add('hidden');
@@ -388,6 +411,44 @@ document.addEventListener('DOMContentLoaded', () => {
       mainVideoPlayer.muted = !mainVideoPlayer.muted;
     }
   });
+
+  // ==========================================
+  // AUTHENTICATION LOGIC
+  // ==========================================
+  if (authForm) {
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      authError.classList.add('hidden');
+      authSubmitBtn.disabled = true;
+      authSubmitBtn.textContent = 'Unlocking...';
+
+      const password = authPassword.value;
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        if (res.ok) {
+          // Success! Hide login, show app, fetch data
+          authScreen.classList.add('hidden');
+          mainApp.classList.remove('hidden');
+          skeletonGrid.classList.remove('hidden');
+          fetchVideos();
+        } else {
+          authError.classList.remove('hidden');
+        }
+      } catch (err) {
+        authError.classList.remove('hidden');
+        authError.textContent = 'Server unreachable.';
+      } finally {
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.textContent = 'Unlock';
+      }
+    });
+  }
 
   // Run initial fetch
   fetchVideos();
