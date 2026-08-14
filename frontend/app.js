@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Hero Elements
   const heroSection = document.getElementById('hero-section');
   const heroBackdrop = document.getElementById('hero-backdrop');
-  const heroTitle = document.getElementById('hero-title');
   const heroSizeBadge = document.getElementById('hero-size-badge');
   const heroYearBadge = document.getElementById('hero-year-badge');
   const heroPlayBtn = document.getElementById('hero-play-btn');
@@ -91,7 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupHeroSpotlight(video) {
     if (!video) return;
     
-    heroTitle.textContent = video.title || video.filename.split('/').pop().replace(/\.[^/.]+$/, "");
     if (heroSizeBadge) heroSizeBadge.textContent = video.formatted_size || 'HD';
     if (heroYearBadge) heroYearBadge.textContent = formatDate(video.mtime);
     

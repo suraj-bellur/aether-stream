@@ -23,6 +23,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: video-frontend
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
     restart: unless-stopped
 
   # Microservice 3: Nginx Reverse Proxy Gateway
