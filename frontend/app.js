@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const authPassword = document.getElementById('auth-password');
   const authError = document.getElementById('auth-error');
   const authSubmitBtn = document.getElementById('auth-submit-btn');
+  const authRemember = document.getElementById('auth-remember');
+  const navLogoutBtn = document.getElementById('nav-logout-btn');
   
   // Hero Elements
   const heroSection = document.getElementById('hero-section');
@@ -184,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sidebar Nav Event Listeners
   navItems.forEach(btn => {
     btn.addEventListener('click', () => {
-      if (btn.id === 'nav-search-btn' || btn.id === 'nav-random-btn') return;
+      if (['nav-search-btn', 'nav-random-btn', 'nav-logout-btn'].includes(btn.id)) return;
       
       navItems.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -423,21 +425,27 @@ document.addEventListener('DOMContentLoaded', () => {
       authSubmitBtn.textContent = 'Unlocking...';
 
       const password = authPassword.value;
+      const remember = authRemember ? authRemember.checked : false;
 
       try {
         const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
+          body: JSON.stringify({ password, remember })
         });
 
         if (res.ok) {
           // Success! Hide login, show app, fetch data
+          authPassword.value = '';
+          authError.textContent = 'Incorrect passkey. Please try again.';
           authScreen.classList.add('hidden');
           mainApp.classList.remove('hidden');
           skeletonGrid.classList.remove('hidden');
           fetchVideos();
         } else {
+          authError.textContent = res.status === 429
+            ? 'Too many attempts. Please wait a few minutes and try again.'
+            : 'Incorrect passkey. Please try again.';
           authError.classList.remove('hidden');
         }
       } catch (err) {
@@ -449,6 +457,48 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // ==========================================
+  // SESSION HANDLING (logout + expiry detection)
+  // ==========================================
+  function showLogin() {
+    if (heroInterval) clearInterval(heroInterval);
+    heroInterval = null;
+    closePlayer();
+    allVideos = [];
+    videoGrid.innerHTML = '';
+    heroSection.classList.add('hidden');
+    mainApp.classList.add('hidden');
+    authScreen.classList.remove('hidden');
+    authPassword.focus();
+  }
+
+  async function logout() {
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+    } catch (err) {
+      console.error('Logout request failed:', err);
+    }
+    showLogin();
+  }
+
+  if (navLogoutBtn) navLogoutBtn.addEventListener('click', logout);
+
+  async function checkSession() {
+    if (mainApp.classList.contains('hidden')) return;
+    try {
+      const res = await fetch('/api/session');
+      if (res.status === 401) showLogin();
+    } catch (err) {
+      // Network blips shouldn't log the user out
+    }
+  }
+
+  // Detect expired sessions when returning to the tab and periodically
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkSession();
+  });
+  setInterval(checkSession, 60 * 1000);
 
   // Run initial fetch
   fetchVideos();

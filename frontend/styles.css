@@ -739,7 +739,7 @@ body {
 .auth-screen {
   position: fixed;
   inset: 0;
-  background: var(--bg-primary);
+  background: var(--bg-main);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -820,4 +820,19 @@ body {
   color: #e87c03;
   margin-top: 15px;
   font-size: 0.9rem;
+}
+
+.auth-remember {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+}
+.auth-remember input {
+  accent-color: var(--accent-red);
+  width: 16px;
+  height: 16px;
 }
