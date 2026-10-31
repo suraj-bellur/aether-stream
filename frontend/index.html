@@ -2,75 +2,86 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Aether Stream - Cinematic Experience</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f0f10">
+  <title>Aether Stream</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=5.1">
+  <link rel="stylesheet" href="styles.css?v=6.0">
 </head>
 <body>
 
   <!-- Authentication Screen -->
-  <div id="auth-screen" class="auth-screen">
+  <div id="auth-screen" class="auth-screen hidden">
     <div class="auth-container">
       <div class="brand-logo auth-logo"><span class="brand-letter">A</span></div>
-      <h1 class="auth-title">Who's watching?</h1>
-      <p class="auth-subtitle">Enter your secret passkey to access the vault.</p>
+      <h1 class="auth-title">Welcome back</h1>
+      <p class="auth-subtitle">Enter your passkey to open your library.</p>
       <form id="auth-form" class="auth-form">
-        <input type="password" id="auth-password" class="auth-input" placeholder="Passkey" required autocomplete="current-password">
+        <input type="password" id="auth-password" class="auth-input" placeholder="Passkey" required autocomplete="current-password" aria-label="Passkey">
         <label class="auth-remember">
           <input type="checkbox" id="auth-remember">
           <span>Remember me for 30 days</span>
         </label>
         <button type="submit" class="auth-submit" id="auth-submit-btn">Unlock</button>
       </form>
-      <p id="auth-error" class="auth-error hidden">Incorrect passkey. Please try again.</p>
+      <p id="auth-error" class="auth-error hidden" role="alert">Incorrect passkey. Please try again.</p>
     </div>
   </div>
 
   <div class="app-layout hidden" id="main-app">
-    
-    <!-- Sidebar Navigation -->
+
+    <!-- Sidebar Navigation (expands on hover on desktop, bottom bar on mobile) -->
     <aside class="sidebar">
-      <div class="brand-logo">
-        <span class="brand-letter">A</span>
+      <div class="sidebar-brand">
+        <div class="brand-logo"><span class="brand-letter">A</span></div>
+        <span class="brand-name">Aether</span>
       </div>
-      <nav class="sidebar-nav">
-        <button class="nav-item active" title="Home" data-filter="all">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+      <nav class="sidebar-nav" aria-label="Library">
+        <button class="nav-item active" data-filter="all" aria-label="All videos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <span class="nav-label">Home</span>
         </button>
-        <button class="nav-item" title="Search" id="nav-search-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <button class="nav-item" data-filter="continue" aria-label="Continue watching">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span class="nav-label">Continue</span>
         </button>
-        <button class="nav-item" title="Recent" data-filter="recent">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <button class="nav-item" data-filter="large" aria-label="Large files">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          <span class="nav-label">Large</span>
         </button>
-        <button class="nav-item" title="Large Files" data-filter="large">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        <button class="nav-item" id="nav-random-btn" aria-label="Play a random video">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+          <span class="nav-label">Shuffle</span>
         </button>
-        <button class="nav-item" title="Random Video" id="nav-random-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-        </button>
-        <button class="nav-item" title="Log out" id="nav-logout-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        <button class="nav-item nav-logout" id="nav-logout-btn" aria-label="Log out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span class="nav-label">Log out</span>
         </button>
       </nav>
-      <div class="sidebar-bottom">
-        <div class="stats-icon" title="Library Stats">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
-        </div>
-      </div>
     </aside>
 
     <!-- Main Content -->
     <main class="main-content">
-      
-      <!-- Top Search Bar (hidden by default) -->
-      <div class="search-bar-container hidden" id="search-container">
-        <svg class="search-icon-input" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input type="text" id="search-input" placeholder="Titles, people, genres" autocomplete="off">
-        <button id="clear-search-btn" class="clear-btn hidden">&times;</button>
-      </div>
+
+      <!-- Top bar: search + sort -->
+      <header class="topbar">
+        <div class="search-bar-container">
+          <svg class="search-icon-input" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="search-input" placeholder="Search your library" autocomplete="off" aria-label="Search videos">
+          <button id="clear-search-btn" class="clear-btn hidden" aria-label="Clear search">&times;</button>
+        </div>
+        <label class="sort-wrap">
+          <span class="sr-only">Sort by</span>
+          <select id="sort-select" class="sort-select">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="name">Name A–Z</option>
+            <option value="largest">Largest</option>
+          </select>
+        </label>
+      </header>
 
       <!-- Hero Billboard -->
       <section class="hero-billboard hidden" id="hero-section">
@@ -78,40 +89,34 @@
         <div class="hero-vignette"></div>
         <div class="hero-vignette-bottom"></div>
         <div class="hero-content">
-          <div class="hero-type-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 22h20L12 2z"></path></svg>
-            AETHER ORIGINAL
-          </div>
-
+          <p class="hero-eyebrow">Featured</p>
+          <h1 class="hero-title" id="hero-title">Your library</h1>
           <div class="hero-meta">
-            <span class="match-score">98% Match</span>
-            <span id="hero-year-badge">2026</span>
+            <span id="hero-year-badge"></span>
             <span class="maturity-rating">HD</span>
-            <span id="hero-size-badge">0 MB</span>
+            <span id="hero-size-badge"></span>
           </div>
-          <p class="hero-synopsis">Experience your personal video library in cinematic quality. High-performance streaming with seamless playback directly from your personal server.</p>
           <div class="hero-buttons">
             <button class="btn-play" id="hero-play-btn">
               <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
               Play
-            </button>
-            <button class="btn-more-info">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-              More Info
             </button>
           </div>
         </div>
       </section>
 
       <!-- Video Grid Rows -->
-      <section class="catalog-section">
-        <h2 class="row-title" id="row-title">Trending Now</h2>
-        
+      <section class="catalog-section" id="catalog-section">
+        <div class="row-header">
+          <h2 class="row-title" id="row-title">All videos</h2>
+          <span class="row-count" id="row-count"></span>
+        </div>
+
         <!-- Skeleton -->
         <div id="skeleton-grid" class="video-grid">
-          <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
         </div>
-        
+
         <!-- Empty -->
         <div id="empty-state" class="empty-state hidden">
           <p id="empty-desc">No titles found.</p>
@@ -119,44 +124,54 @@
 
         <!-- Grid -->
         <div id="video-grid" class="video-grid hidden"></div>
-        
+
         <!-- Pagination -->
         <div id="pagination-wrapper" class="pagination-wrapper hidden">
-          <button id="prev-page-btn" class="pagination-btn" disabled>
+          <button id="prev-page-btn" class="pagination-btn" aria-label="Previous page" disabled>
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
           </button>
           <div id="page-numbers" class="page-numbers"></div>
-          <button id="next-page-btn" class="pagination-btn">
+          <button id="next-page-btn" class="pagination-btn" aria-label="Next page">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
         </div>
       </section>
-      
+
       <!-- Footer -->
       <footer class="app-footer">
-        <p>Aether Stream &copy; 2026 &bull; <span id="video-count-text">0 Videos</span></p>
+        <p>Aether Stream &bull; <span id="video-count-text">0 Videos</span></p>
       </footer>
     </main>
   </div>
 
   <!-- Cinema Player Modal -->
-  <div id="player-modal" class="player-modal-overlay hidden">
+  <div id="player-modal" class="player-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Video player">
     <div class="modal-window">
       <div class="modal-top-bar">
-        <button id="modal-shuffle-btn" class="modal-action-btn" aria-label="Shuffle Video" title="Play Another Random Video">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-        </button>
-        <button id="modal-close-btn" class="modal-action-btn" aria-label="Close modal" title="Close Player">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
+        <h2 class="modal-title" id="modal-title"></h2>
+        <div class="modal-actions">
+          <button id="modal-prev-btn" class="modal-action-btn" aria-label="Previous video" title="Previous">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"></polygon><rect x="5" y="4" width="2.5" height="16"></rect></svg>
+          </button>
+          <button id="modal-next-btn" class="modal-action-btn" aria-label="Next video" title="Next">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"></polygon><rect x="16.5" y="4" width="2.5" height="16"></rect></svg>
+          </button>
+          <button id="modal-shuffle-btn" class="modal-action-btn" aria-label="Play a random video" title="Random video">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+          </button>
+          <button id="modal-close-btn" class="modal-action-btn" aria-label="Close player" title="Close (Esc)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
       </div>
       <div class="video-screen-container">
         <video id="main-video-player" controls controlsList="nodownload" oncontextmenu="return false;" preload="auto" playsinline>
           Your browser does not support HTML5 video playback.
         </video>
       </div>
+    </div>
   </div>
 
-  <script src="app.js?v=6.0"></script>
+  <script src="app.js?v=7.0"></script>
 </body>
 </html>

@@ -41,26 +41,40 @@ def get_file_hash(filename: str) -> str:
     return hashlib.md5(filename.encode("utf-8")).hexdigest()
 
 
+def safe_join(base: str, relative: str) -> str:
+    """Join a user-supplied relative path onto base, refusing paths that escape it."""
+    full = os.path.realpath(os.path.join(base, relative))
+    if os.path.commonpath([os.path.realpath(base), full]) != os.path.realpath(base):
+        raise HTTPException(status_code=404, detail="Video file not found")
+    return full
+
+
 def generate_thumbnail(video_path: str, thumbnail_path: str) -> bool:
-    """Extract 3 frames at 5s, 10s, and 15s and stack them vertically as a collage using FFmpeg."""
+    """Extract a single frame (5s in, or the first frame for short clips) as a 16:9-friendly JPEG."""
     if os.path.exists(thumbnail_path):
         return True
+    tmp_path = f"{thumbnail_path}.{secrets.token_hex(4)}.tmp.jpg"
     try:
-        command = [
-            "ffmpeg",
-            "-ss", "00:00:05", "-i", video_path,
-            "-ss", "00:00:10", "-i", video_path,
-            "-ss", "00:00:15", "-i", video_path,
-            "-filter_complex", "[0:v]scale=480:-1[v0];[1:v]scale=480:-1[v1];[2:v]scale=480:-1[v2];[v0][v1][v2]vstack=inputs=3",
-            "-q:v", "3",
-            thumbnail_path,
-            "-y"
-        ]
-        result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return result.returncode == 0
-    except Exception as e:
-        print(f"Error generating thumbnail collage for {video_path}: {e}")
+        for timestamp in ("00:00:05", "00:00:00"):
+            command = [
+                "ffmpeg", "-y",
+                "-ss", timestamp, "-i", video_path,
+                "-frames:v", "1",
+                "-vf", "scale=640:-2",
+                "-q:v", "3",
+                tmp_path,
+            ]
+            result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if result.returncode == 0 and os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
+                os.replace(tmp_path, thumbnail_path)
+                return True
         return False
+    except Exception as e:
+        print(f"Error generating thumbnail for {video_path}: {e}")
+        return False
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 
 def format_size(size_in_bytes: int) -> str:
@@ -229,7 +243,7 @@ _video_cache = {
     "timestamp": 0,
     "data": []
 }
-CACHE_TTL_SECONDS = 300  # 5 minutes
+CACHE_TTL_SECONDS = 30
 
 def get_video_list():
     """Scan VIDEO_DIR for supported video formats and metadata."""
@@ -278,20 +292,24 @@ def list_videos():
 
 @app.get("/api/thumbnail/{video_path:path}")
 def get_thumbnail(video_path: str):
-    """Serve cached 3-frame collage thumbnail image, generating it on-demand if missing."""
-    full_path = os.path.join(VIDEO_DIR, video_path)
-    if not os.path.exists(full_path):
+    """Serve the cached thumbnail image, generating it on-demand if missing."""
+    full_path = safe_join(VIDEO_DIR, video_path)
+    if not os.path.isfile(full_path):
         raise HTTPException(status_code=404, detail="Video file not found")
         
     file_hash = get_file_hash(video_path)
-    thumb_filename = f"{file_hash}_collage3.jpg"
+    thumb_filename = f"{file_hash}_thumb.jpg"
     thumb_path = os.path.join(THUMBNAIL_DIR, thumb_filename)
     
     if not os.path.exists(thumb_path):
         generate_thumbnail(full_path, thumb_path)
 
     if os.path.exists(thumb_path):
-        return FileResponse(thumb_path, media_type="image/jpeg")
+        return FileResponse(
+            thumb_path,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "private, max-age=86400"},
+        )
 
     raise HTTPException(status_code=404, detail="Thumbnail could not be generated")
 
@@ -300,9 +318,9 @@ def get_thumbnail(video_path: str):
 @app.get("/api/stream/{video_path:path}")
 def stream_video(video_path: str, request: Request):
     """HTTP Range request streaming endpoint for video playback & seeking."""
-    full_path = os.path.join(VIDEO_DIR, video_path)
+    full_path = safe_join(VIDEO_DIR, video_path)
     
-    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+    if not os.path.isfile(full_path):
         raise HTTPException(status_code=404, detail="Video file not found")
         
     file_size = os.path.getsize(full_path)
