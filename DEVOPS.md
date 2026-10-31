@@ -6,7 +6,7 @@ This document outlines the DevOps, Infrastructure, and Deployment strategies imp
 *   **Vagrant**: We use Vagrant to provision and manage a Virtual Machine. This ensures that the development environment is consistent across any host operating system (Windows, Mac, Linux) and isolates the project's dependencies from the host machine.
 
 ## 2. Containerization (Docker)
-*   **Dockerfiles**: The application is broken down into microservices, and each custom service (like the frontend and backend) has its own `Dockerfile`. This packages the application code along with its exact dependencies (like Python 3.9, FastAPI, Nginx) into an immutable image.
+*   **Dockerfiles**: The application is broken down into microservices, and each custom service (like the frontend and backend) has its own `Dockerfile`. This packages the application code along with its exact dependencies (like Python 3.11, FastAPI, Nginx) into an immutable image.
 
 ## 3. Container Orchestration (Docker Compose)
 *   **Docker Compose**: The `docker-compose.yml` file defines our multi-container architecture. It handles:

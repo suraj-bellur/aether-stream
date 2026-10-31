@@ -11,8 +11,8 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 | **Virtualization & VM** | **Vagrant** + **VirtualBox** | Ubuntu 22.04 LTS (`ubuntu/jammy64`) environment setup |
 | **Orchestration** | **Docker** & **Docker Compose** | Containerized microservice lifecycle & network management |
 | **Backend Service** | **Python 3.11** + **FastAPI** + **Uvicorn** | Dynamic file scanner, metadata parser, authentication |
-| **Media Processing** | **FFmpeg** | On-demand 3-frame vertical collage generation for thumbnails |
-| **Frontend Web App** | **Vanilla JS (ES6+)** + **CSS3** | Cinema-grade dark UI, passkey login, responsive grid |
+| **Media Processing** | **FFmpeg** | On-demand single-frame thumbnail generation |
+| **Frontend Web App** | **Vanilla JS (ES6+)** + **CSS3** | Cinema-grade dark UI, passkey login, search/sort, resume playback, responsive grid |
 | **Web Gateway** | **Nginx** (`nginx:alpine`) | Reverse proxy, secure video streaming (`sendfile`), route protection (`auth_request`) |
 | **Remote Access & SSL** | **Cloudflare Tunnels** + **GoDaddy DNS** | Zero-trust HTTPS tunnel (`https://your-public-hostname`) |
 
@@ -33,11 +33,14 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 
 ### 3. Dynamic File Discovery & On-Demand Thumbnails
 * Adding a `.mp4`, `.mkv`, `.webm`, or `.mov` file to the host folder immediately surfaces it on web page refresh.
-* MD5 hash caching (`get_file_hash`) generates and stores 3-frame `.jpg` thumbnail collages in a persistent Docker volume (`thumbnail-cache`) only when requested.
+* MD5 hash caching (`get_file_hash`) generates and stores a single-frame `.jpg` thumbnail in a persistent Docker volume (`thumbnail-cache`) only when requested. The video list is cached for 30 seconds, so new files show up within moments of a refresh.
 
 ### 4. Global Passkey Authentication
-* The entire platform is locked behind a global passkey (session-based cookie).
-* The FastAPI backend issues the session token, while Nginx intercepts all API and video streaming routes using the `auth_request` module to verify the token at the edge.
+* The entire platform is locked behind a single shared passkey (`SITE_PASSWORD`, required).
+* Login creates a random server-side session token (stored hashed, persisted in the cache volume so restarts keep you signed in). The cookie holds only that token and is `HttpOnly`, `SameSite=Lax`, and `Secure` over HTTPS.
+* Sessions last 12 hours, or 30 days with **Remember me**. A logout button invalidates the session server-side, and the UI returns to the login screen automatically when a session expires.
+* Failed logins are rate limited per client IP (5 attempts, then a 15 minute lockout).
+* Nginx intercepts all API and video streaming routes using the `auth_request` module to verify the session at the edge.
 
 ### 5. Cloudflare Tunnel Gateway
 * `cloudflared` runs as a microservice inside Docker (`video-tunnel`).
@@ -50,7 +53,7 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 
 ```text
 video-streaming/
-├── Vagrantfile               # Ubuntu VM spec (2GB RAM, 2 CPUs, Synced Folders)
+├── Vagrantfile               # Ubuntu VM spec (4GB RAM, 4 CPUs, Synced Folders)
 ├── bootstrap.sh              # Shell provisioner installing Docker & FFmpeg
 ├── docker-compose.yml        # Orchestrates Backend, Frontend, Nginx, Cloudflared
 ├── .env                      # Local secret variables (TUNNEL_TOKEN, SITE_PASSWORD) - Git ignored
@@ -59,13 +62,13 @@ video-streaming/
 ├── README.md                 # Developer & Architecture documentation
 ├── DEVOPS.md                 # Detailed Infrastructure & DevOps documentation
 ├── backend/                  # Microservice 1: FastAPI Video Engine
-│   ├── main.py               # Video scanner, FFmpeg thumbnailer, Auth routes
+│   ├── main.py               # Video scanner, FFmpeg thumbnailer, session auth routes
 │   ├── requirements.txt      # Python dependencies (fastapi, uvicorn)
 │   └── Dockerfile            # Python 3.11-slim + FFmpeg image
 ├── frontend/                 # Microservice 2: Cinema Web Application
 │   ├── index.html            # Responsive UI, Passkey Auth overlay, modal layout
 │   ├── styles.css            # Dark mode design system, glassmorphism, CSS grid
-│   ├── app.js                # Auth logic, Instant search, high-speed player
+│   ├── app.js                # Auth/session logic, search & sort, player with resume
 │   └── Dockerfile            # Lightweight nginx:alpine image
 └── nginx/                    # Microservice 3: Gateway Reverse Proxy
     └── nginx.conf            # Routing rules, `auth_request`, stream `sendfile`
@@ -96,6 +99,9 @@ docker compose up -d --build frontend
 
 # Rebuild & restart backend container
 docker compose up -d --build backend
+
+# Make sure the full stack (nginx + tunnel included) is running
+docker compose up -d
 ```
 
 ### Environment Setup (`.env`)
