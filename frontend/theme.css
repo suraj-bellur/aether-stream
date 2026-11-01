@@ -1,0 +1,3 @@
+/* Theme overrides, loaded after styles.css.
+   Intentionally empty: the public site uses the default look.
+   The private site (docker-compose.yml, service nginx-private) mounts frontend/theme.private.css over this file. */
