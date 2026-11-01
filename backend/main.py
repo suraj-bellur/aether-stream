@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import subprocess
 import hashlib
@@ -680,8 +681,50 @@ def _warm_loop():
             print(f"Cache warming stopped: {e}")
 
 
+# Files written by older versions of the thumbnailer: "<md5>.jpg" and "<md5>_collage3.jpg"
+LEGACY_THUMB_RE = re.compile(r"^[0-9a-f]{32}(_collage3)?\.jpg$")
+STALE_TMP_SECONDS = 10 * 60
+
+
+def cleanup_cache() -> dict:
+    """Delete legacy thumbnails and temp files left behind by interrupted renders.
+
+    Runs on every backend start (container start/restart/rebuild and VM boot) and can
+    be run by hand: docker exec video-backend python -c "import main; main.cleanup_cache()"
+    Current thumbnails and renditions are never touched.
+    """
+    removed = {"legacy": 0, "temp": 0}
+    freed = 0
+    now = time.time()
+    try:
+        entries = list(os.scandir(THUMBNAIL_DIR))
+    except OSError as e:
+        print(f"Cache cleanup skipped: {e}")
+        return removed
+    for entry in entries:
+        if not entry.is_file():
+            continue
+        if LEGACY_THUMB_RE.match(entry.name):
+            kind = "legacy"
+        elif entry.name.endswith(".tmp.jpg") and now - entry.stat().st_mtime > STALE_TMP_SECONDS:
+            kind = "temp"
+        else:
+            continue
+        try:
+            size = entry.stat().st_size
+            os.remove(entry.path)
+            removed[kind] += 1
+            freed += size
+        except OSError as e:
+            print(f"Could not remove {entry.name}: {e}")
+    print(f"Cache cleanup: removed {removed['legacy']} legacy thumbnails and "
+          f"{removed['temp']} stale temp files, freed {format_size(freed)}")
+    return removed
+
+
 @app.on_event("startup")
 def start_background_work():
+    cleanup_cache()
     threading.Thread(target=_warm_loop, name="cache-warmer", daemon=True).start()
     # Scan right away so the first visitor never waits for the drive (this also wakes the warmer)
     threading.Thread(target=get_library, name="initial-scan", daemon=True).start()

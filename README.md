@@ -116,6 +116,25 @@ TUNNEL_TOKEN=your_cloudflare_tunnel_token_here
 SITE_PASSWORD=your_secure_passkey_here
 ```
 
+### Cache Cleanup
+The backend cleans its cache **automatically every time it starts**: on `docker compose up`, `restart` and `up --build`, and on every VM boot or `vagrant reload` (the container has `restart: unless-stopped`, so Docker starts it on boot). It deletes:
+* legacy thumbnails from older versions of the thumbnailer (`<md5>.jpg` and `<md5>_collage3.jpg`)
+* temp files (`*.tmp.jpg`) older than 10 minutes, left behind by interrupted renders
+
+Current files (`*_v2.jpg` video thumbnails, `*_thumb.jpg` / `*_view.jpg` photo renditions, `photo_meta.json`, `sessions.json`) are never touched, so nothing has to be regenerated afterwards.
+
+To run it by hand at any time (safe while the site is in use):
+```bash
+docker exec video-backend python -c "import main; main.cleanup_cache()"
+
+# from Windows, without opening an SSH session first:
+vagrant ssh -c 'docker exec video-backend python -c "import main; main.cleanup_cache()"'
+```
+It prints what it removed, e.g. `Cache cleanup: removed 1259 legacy thumbnails and 0 stale temp files, freed …`. The automatic run's summary is in `docker logs video-backend`.
+
+> [!CAUTION]
+> Don't delete `*_thumb.jpg` by hand: that's the name of the photo grid thumbnails, and the warmer would have to re-read every original from the drive.
+
 ### Container Status & Log Inspection
 ```bash
 # Check all container states
