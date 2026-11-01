@@ -11,7 +11,7 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 | **Virtualization & VM** | **Vagrant** + **VirtualBox** | Ubuntu 22.04 LTS (`ubuntu/jammy64`) environment setup |
 | **Orchestration** | **Docker** & **Docker Compose** | Containerized microservice lifecycle & network management |
 | **Backend Service** | **Python 3.11** + **FastAPI** + **Uvicorn** | Dynamic file scanner, metadata parser, authentication |
-| **Media Processing** | **FFmpeg** | On-demand thumbnails: best-of-several frame selection |
+| **Media Processing** | **FFmpeg** + **Pillow** | On-demand video thumbnails (best-of-several frame selection) and resized photo renditions |
 | **Frontend Web App** | **Vanilla JS (ES6+)** + **CSS3** | Ambient cinema UI (colour-adaptive theme, card→player morph, hover previews), passkey login, search/sort, resume & up-next playback |
 | **Web Gateway** | **Nginx** (`nginx:alpine`) | Reverse proxy, secure video streaming (`sendfile`), route protection (`auth_request`) |
 | **Remote Access & SSL** | **Cloudflare Tunnels** + **GoDaddy DNS** | Zero-trust HTTPS tunnel (`https://your-public-hostname`) |
@@ -21,7 +21,7 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 ## 🧩 Architectural Concepts & Engineering Design
 
 ### 1. Zero-Copy Host Storage Mounting
-* Large video collections (50GB+) remain on the host Windows machine (the media folder).
+* Large video and photo collections (50GB+) remain on the host Windows machine (currently the external drive `E:/`).
 * VirtualBox Synced Folders mount this path into the Ubuntu VM at `/media/videos`.
 * Docker Compose bind-mounts `/media/videos` **read-only** (`:ro`) into the `backend` and `nginx` containers.
 * **Benefit**: Zero disk duplication, zero upload overhead, instant availability of new videos.
@@ -32,7 +32,10 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 * All streams are strictly protected; Nginx intercepts video requests and verifies the session token using `auth_request` before serving any bytes.
 
 ### 3. Dynamic File Discovery & On-Demand Thumbnails
-* Adding a `.mp4`, `.mkv`, `.webm`, or `.mov` file to the host folder immediately surfaces it on web page refresh.
+* Adding a video (`.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.m4v`) or photo (`.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.bmp`) to the host folder surfaces it on web page refresh.
+* Media can live in the root folder or in sub-folders at any depth. The UI has a **Videos / Photos** toggle and mirrors the folder tree (same names as on disk) with breadcrumbs; folders without media of the current type are hidden. `GET /api/library` returns videos, photos and folders (with recursive counts and cover files) in one call.
+* Photos are shown Google Photos style: justified rows at their true aspect ratio, grouped by the EXIF capture date, with no file names in the grid. Clicking one opens a viewer that shows the name, date and size, supports swipe/arrow navigation and double-click zoom, and downloads the original.
+* Photo renditions are cached in the same volume: `thumb` (480px tall, grid) and `view` (up to 2048px, viewer) via `GET /api/photo/{thumb|view}/<path>`. Photo dimensions and EXIF dates are cached in `photo_meta.json`, so only new or changed files are re-read.
 * MD5 hash caching (`get_file_hash`) generates and stores a `.jpg` thumbnail (up to 1280px) in a persistent Docker volume (`thumbnail-cache`) only when requested. FFmpeg samples frames at 15/35/55/75% of the video and keeps the most detailed one, so black fades, title cards and blurry transitions are skipped. The video list is cached for 30 seconds, so new files show up within moments of a refresh.
 * The UI letterboxes non-16:9 thumbnails (portrait, 4:3, ultra-wide) over a blurred copy of themselves instead of cropping, and tints the page with each thumbnail's dominant colour.
 

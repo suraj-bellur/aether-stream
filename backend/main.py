@@ -7,7 +7,11 @@ import json
 import secrets
 import threading
 from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Optional
+# pyrefly: ignore [missing-import]
+from PIL import Image, ImageOps
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request, Response, HTTPException, status
 # pyrefly: ignore [missing-import]
@@ -15,8 +19,19 @@ from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 # pyrefly: ignore [missing-import]
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="Personal Video Streaming API")
+app = FastAPI(title="Personal Media Streaming API")
 
+
+@app.on_event("startup")
+async def raise_threadpool_limit():
+    # Thumbnail requests block worker threads while they queue for a generation slot;
+    # give the pool enough headroom that API calls are never starved behind them.
+    # pyrefly: ignore [missing-import]
+    from anyio import to_thread
+    to_thread.current_default_thread_limiter().total_tokens = 100
+
+
+# VIDEO_DIR is the media root; it holds videos and photos, at the top level or in sub-folders
 VIDEO_DIR = os.getenv("VIDEO_DIR", "/media/videos")
 CACHE_DIR = os.getenv("CACHE_DIR", "/app/cache")
 THUMBNAIL_DIR = os.path.join(CACHE_DIR, "thumbnails")
@@ -142,7 +157,14 @@ def format_size(size_in_bytes: int) -> str:
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "video_dir": VIDEO_DIR, "videos_found": len(get_video_list())}
+    library = get_library()
+    return {
+        "status": "ok",
+        "video_dir": VIDEO_DIR,
+        "videos_found": len(library["videos"]),
+        "photos_found": len(library["photos"]),
+        "folders_found": len(library["folders"]),
+    }
 
 # ------------------------------------------------------------------
 # Session management (server-side, persisted so restarts keep logins)
@@ -292,56 +314,203 @@ def session_status():
     return {"status": "ok"}
 
 
-# Cache for video list to avoid scanning the filesystem on every request
-_video_cache = {
-    "timestamp": 0,
-    "data": []
-}
+# ------------------------------------------------------------------
+# Library scanning (videos, photos and the folder tree)
+# ------------------------------------------------------------------
+VIDEO_EXTENSIONS = ('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')
+PHOTO_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp')
+# System folders that never hold the user's media (compared lower-case)
+SKIP_DIRS = {"system volume information", "$recycle.bin", "lost+found", "@eadir"}
+FOLDER_COVER_COUNT = 3
 CACHE_TTL_SECONDS = 30
 
-def get_video_list():
-    """Scan VIDEO_DIR for supported video formats and metadata."""
-    global _video_cache
-    if time.time() - _video_cache["timestamp"] < CACHE_TTL_SECONDS:
-        return _video_cache["data"]
+# Photo dimensions/EXIF are expensive to read over the VirtualBox share, so they
+# are persisted and only re-read when a file's size or mtime changes.
+PHOTO_META_FILE = os.path.join(CACHE_DIR, "photo_meta.json")
+EXIF_ORIENTATION = 274
+EXIF_DATETIME = 306
+EXIF_IFD = 0x8769
+EXIF_DATETIME_ORIGINAL = 36867
 
-    supported_extensions = ('.mp4', '.mkv', '.webm', '.mov', '.avi')
-    videos = []
-    
-    if not os.path.exists(VIDEO_DIR):
-        return videos
+_library_lock = threading.Lock()
+_library_cache = {"timestamp": 0, "data": None}
 
-    for root, _, files in os.walk(VIDEO_DIR):
-        for file in sorted(files):
-            if file.lower().endswith(supported_extensions):
-                rel_path = os.path.relpath(os.path.join(root, file), VIDEO_DIR)
-                full_path = os.path.join(VIDEO_DIR, rel_path)
-                file_size = os.path.getsize(full_path)
-                mtime = os.path.getmtime(full_path)
-                file_hash = get_file_hash(rel_path)
-                
-                title = os.path.splitext(file)[0].replace('_', ' ').replace('-', ' ')
-                
-                videos.append({
-                    "id": file_hash,
+
+def _load_photo_meta() -> dict:
+    try:
+        with open(PHOTO_META_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_photo_meta(meta: dict):
+    try:
+        tmp = PHOTO_META_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+        os.replace(tmp, PHOTO_META_FILE)
+    except OSError as e:
+        print(f"Could not persist photo metadata: {e}")
+
+
+def parse_exif_date(value) -> Optional[str]:
+    """EXIF stores 'YYYY:MM:DD HH:MM:SS'; return it as a naive ISO string (camera local time)."""
+    if not value:
+        return None
+    try:
+        text = str(value).strip().strip("\x00")
+        return datetime.strptime(text[:19], "%Y:%m:%d %H:%M:%S").isoformat()
+    except ValueError:
+        return None
+
+
+def read_photo_meta(full_path: str) -> dict:
+    """Read display dimensions (after EXIF rotation) and the capture date of a photo."""
+    try:
+        with Image.open(full_path) as img:
+            width, height = img.size
+            exif = img.getexif()
+            # Orientations 5-8 are rotated 90 degrees, so width and height swap on display
+            if exif.get(EXIF_ORIENTATION) in (5, 6, 7, 8):
+                width, height = height, width
+            taken = exif.get_ifd(EXIF_IFD).get(EXIF_DATETIME_ORIGINAL) or exif.get(EXIF_DATETIME)
+            return {"w": width, "h": height, "taken": parse_exif_date(taken)}
+    except Exception as e:
+        print(f"Could not read photo metadata for {full_path}: {e}")
+        return {"w": 4, "h": 3, "taken": None, "broken": True}
+
+
+def _add_to_folders(folders: dict, rel_dir: str, kind: str, rel_path: str):
+    """Count the file towards its folder and every ancestor folder (recursive totals)."""
+    parts = rel_dir.split("/") if rel_dir else []
+    for depth in range(len(parts), 0, -1):
+        path = "/".join(parts[:depth])
+        folder = folders.setdefault(path, {
+            "path": path,
+            "name": parts[depth - 1],
+            "parent": "/".join(parts[:depth - 1]),
+            "videos": 0,
+            "photos": 0,
+            "cover_videos": [],
+            "cover_photos": [],
+        })
+        folder[kind] += 1
+        covers = folder[f"cover_{kind}"]
+        if len(covers) < FOLDER_COVER_COUNT:
+            covers.append(rel_path)
+
+
+def get_library() -> dict:
+    """Return the library, rescanning when the cached copy is older than CACHE_TTL_SECONDS."""
+    with _library_lock:
+        cached = _library_cache["data"]
+        if cached is None or time.time() - _library_cache["timestamp"] >= CACHE_TTL_SECONDS:
+            _scan_library()
+        return _library_cache["data"]
+
+
+def _scan_library():
+    """Scan VIDEO_DIR (recursively) for videos, photos and the folders that contain them.
+
+    Callers must hold _library_lock.
+    """
+    videos, photos, folders = [], [], {}
+    if os.path.isdir(VIDEO_DIR):
+        for root, dirs, files in os.walk(VIDEO_DIR):
+            # Prune hidden and system folders in place so os.walk never descends into them
+            dirs[:] = sorted(
+                (d for d in dirs if not d.startswith(".") and d.lower() not in SKIP_DIRS),
+                key=str.lower,
+            )
+            rel_dir = os.path.relpath(root, VIDEO_DIR).replace(os.sep, "/")
+            if rel_dir == ".":
+                rel_dir = ""
+
+            for file in sorted(files, key=str.lower):
+                if file.startswith("."):
+                    continue
+                ext = os.path.splitext(file)[1].lower()
+                if ext in VIDEO_EXTENSIONS:
+                    kind = "videos"
+                elif ext in PHOTO_EXTENSIONS:
+                    kind = "photos"
+                else:
+                    continue
+
+                rel_path = f"{rel_dir}/{file}" if rel_dir else file
+                try:
+                    stat = os.stat(os.path.join(root, file))
+                except OSError:
+                    continue
+
+                item = {
+                    "id": get_file_hash(rel_path),
                     "filename": rel_path,
-                    "title": title,
-                    "size_bytes": file_size,
-                    "formatted_size": format_size(file_size),
-                    "mtime": mtime,
-                    "thumbnail_url": f"/api/thumbnail/{rel_path}",
-                    "stream_url": f"/api/stream/{rel_path}"
-                })
-                
-    _video_cache["data"] = videos
-    _video_cache["timestamp"] = time.time()
-    return videos
+                    "folder": rel_dir,
+                    "size_bytes": stat.st_size,
+                    "formatted_size": format_size(stat.st_size),
+                    "mtime": stat.st_mtime,
+                }
+                if kind == "videos":
+                    item["title"] = os.path.splitext(file)[0].replace('_', ' ').replace('-', ' ')
+                    videos.append(item)
+                else:
+                    item["name"] = file
+                    photos.append(item)
+                _add_to_folders(folders, rel_dir, kind, rel_path)
+
+    _attach_photo_meta(photos)
+
+    _library_cache["data"] = {
+        "root_name": os.path.basename(os.path.normpath(VIDEO_DIR)) or "Library",
+        "videos": videos,
+        "photos": photos,
+        "folders": sorted(folders.values(), key=lambda f: f["path"].lower()),
+    }
+    _library_cache["timestamp"] = time.time()
+
+
+def _attach_photo_meta(photos: list):
+    stored = _load_photo_meta()
+    fresh = {}
+    missing = []
+    for photo in photos:
+        entry = stored.get(photo["filename"])
+        if entry and entry.get("size") == photo["size_bytes"] and entry.get("mtime") == photo["mtime"]:
+            fresh[photo["filename"]] = entry
+        else:
+            missing.append(photo)
+
+    if missing:
+        started = time.time()
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = pool.map(lambda p: read_photo_meta(os.path.join(VIDEO_DIR, p["filename"])), missing)
+            for photo, meta in zip(missing, results):
+                fresh[photo["filename"]] = {**meta, "size": photo["size_bytes"], "mtime": photo["mtime"]}
+        print(f"Read metadata for {len(missing)} photos in {time.time() - started:.1f}s")
+
+    # Rewrite when anything changed (new photos read, or deleted photos dropped)
+    if missing or len(fresh) != len(stored):
+        _save_photo_meta(fresh)
+
+    for photo in photos:
+        meta = fresh[photo["filename"]]
+        photo["width"] = meta["w"]
+        photo["height"] = meta["h"]
+        photo["taken"] = meta.get("taken") or datetime.fromtimestamp(photo["mtime"]).isoformat(timespec="seconds")
+
+
+@app.get("/api/library")
+def library():
+    """Everything the UI needs in one call: videos, photos and the folder tree."""
+    return get_library()
 
 
 @app.get("/api/videos")
 def list_videos():
-    """Endpoint returning all available videos and metadata instantly."""
-    return get_video_list()
+    """Video list only (kept for compatibility)."""
+    return get_library()["videos"]
 
 
 @app.get("/api/thumbnail/{video_path:path}")
@@ -366,6 +535,71 @@ def get_thumbnail(video_path: str):
         )
 
     raise HTTPException(status_code=404, detail="Thumbnail could not be generated")
+
+
+# ------------------------------------------------------------------
+# Photo renditions (the originals are often 10MB+, far too big for a grid)
+# ------------------------------------------------------------------
+PHOTO_RENDITIONS = {
+    # name: (max width, max height, JPEG quality)
+    "thumb": (1440, 480, 80),   # grid tiles: 480px tall covers ~240px rows on 2x screens
+    "view": (2048, 2048, 85),   # lightbox
+}
+_photo_semaphore = threading.BoundedSemaphore(4)
+
+
+def render_photo(src: str, dest: str, max_w: int, max_h: int, quality: int) -> bool:
+    if os.path.exists(dest):
+        return True
+    with _photo_semaphore:
+        if os.path.exists(dest):
+            return True
+        tmp = f"{dest}.{secrets.token_hex(4)}.tmp.jpg"
+        try:
+            with Image.open(src) as img:
+                # Let the JPEG decoder downscale by 1/2, 1/4 or 1/8 while decoding (much faster).
+                # Request a square box so rotated portrait photos are never undersized.
+                edge = min(max_w, max_h)
+                img.draft("RGB", (edge, edge))
+                img = ImageOps.exif_transpose(img)
+                if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                    rgba = img.convert("RGBA")
+                    img = Image.new("RGB", rgba.size, (14, 14, 22))
+                    img.paste(rgba, mask=rgba.split()[-1])
+                elif img.mode != "RGB":
+                    img = img.convert("RGB")
+                img.thumbnail((max_w, max_h), Image.LANCZOS)
+                img.save(tmp, "JPEG", quality=quality, optimize=True, progressive=True)
+            os.replace(tmp, dest)
+            return True
+        except Exception as e:
+            print(f"Error rendering photo {src}: {e}")
+            return False
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+
+
+@app.get("/api/photo/{rendition}/{photo_path:path}")
+def get_photo(rendition: str, photo_path: str):
+    """Serve a cached, resized JPEG of a photo. Originals are served by Nginx via /api/stream/."""
+    if rendition not in PHOTO_RENDITIONS:
+        raise HTTPException(status_code=404, detail="Unknown rendition")
+    if not photo_path.lower().endswith(PHOTO_EXTENSIONS):
+        raise HTTPException(status_code=404, detail="Not a photo")
+    full_path = safe_join(VIDEO_DIR, photo_path)
+    if not os.path.isfile(full_path):
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    max_w, max_h, quality = PHOTO_RENDITIONS[rendition]
+    dest = os.path.join(THUMBNAIL_DIR, f"{get_file_hash(photo_path)}_{rendition}.jpg")
+    if render_photo(full_path, dest, max_w, max_h, quality):
+        return FileResponse(
+            dest,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "private, max-age=604800"},
+        )
+    raise HTTPException(status_code=404, detail="Photo could not be rendered")
 
 
 
