@@ -39,12 +39,24 @@ THUMBNAIL_DIR = os.path.join(CACHE_DIR, "thumbnails")
 SITE_PASSWORD = os.getenv("SITE_PASSWORD", "")
 if not SITE_PASSWORD:
     raise RuntimeError("SITE_PASSWORD must be set in the environment (.env)")
-AUTH_COOKIE_NAME = "aether_session"
 
-SESSION_TTL_SHORT = 12 * 60 * 60          # 12 hours (session cookie)
-SESSION_TTL_REMEMBER = 30 * 24 * 60 * 60  # 30 days ("remember me")
-MAX_FAILED_LOGINS = 5
-LOGIN_WINDOW_SECONDS = 15 * 60
+
+def env_number(name: str, default: float) -> float:
+    """Read a numeric setting from the environment; empty or invalid values fall back to the default."""
+    raw = os.getenv(name, "").strip()
+    try:
+        return float(raw) if raw else default
+    except ValueError:
+        print(f"Ignoring invalid {name}={raw!r}, using {default}")
+        return default
+
+
+# All of these can be changed in .env (see .env.example); the defaults match the original behaviour
+AUTH_COOKIE_NAME = os.getenv("AUTH_COOKIE_NAME", "").strip() or "aether_session"
+SESSION_TTL_SHORT = int(env_number("SESSION_HOURS", 12) * 60 * 60)             # session cookie
+SESSION_TTL_REMEMBER = int(env_number("REMEMBER_DAYS", 30) * 24 * 60 * 60)     # "remember me"
+MAX_FAILED_LOGINS = int(env_number("MAX_FAILED_LOGINS", 5))
+LOGIN_WINDOW_SECONDS = int(env_number("LOGIN_LOCKOUT_MINUTES", 15) * 60)
 
 # Ensure cache directories exist
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
@@ -323,7 +335,7 @@ PHOTO_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp')
 # System folders that never hold the user's media (compared lower-case)
 SKIP_DIRS = {"system volume information", "$recycle.bin", "lost+found", "@eadir"}
 FOLDER_COVER_COUNT = 3
-CACHE_TTL_SECONDS = 30
+CACHE_TTL_SECONDS = int(env_number("LIBRARY_RESCAN_SECONDS", 30))
 
 # Photo dimensions/EXIF are expensive to read over the VirtualBox share, so they
 # are persisted and only re-read when a file's size or mtime changes.
@@ -626,7 +638,7 @@ def render_photo(src: str, photo_path: str) -> bool:
 # Pre-renders every missing video thumbnail and photo rendition so nobody waits on
 # the (slow, USB) media drive while browsing. Reads are throttled so the warmer
 # never starves video playback, which shares the same drive.
-WARM_MAX_MB_PER_SEC = float(os.getenv("WARM_MAX_MB_PER_SEC", "12"))
+WARM_MAX_MB_PER_SEC = env_number("WARM_MAX_MB_PER_SEC", 12)
 _warm_wakeup = threading.Event()
 _warm_failed = set()  # paths that failed once are not retried until the backend restarts
 
