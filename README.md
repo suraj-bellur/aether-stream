@@ -21,7 +21,7 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 ## 🧩 Architectural Concepts & Engineering Design
 
 ### 1. Zero-Copy Host Storage Mounting
-* Large video and photo collections (50GB+) remain on the host Windows machine (currently the external drive `E:/`).
+* Large video and photo collections (50GB+) remain on the host Windows machine, in the folders set by `PUBLIC_MEDIA_DIR` and `PRIVATE_MEDIA_DIR` in `.env`.
 * VirtualBox Synced Folders mount this path into the Ubuntu VM at `/media/videos`.
 * Docker Compose bind-mounts `/media/videos` **read-only** (`:ro`) into the `backend` and `nginx` containers.
 * **Benefit**: Zero disk duplication, zero upload overhead, instant availability of new videos.
@@ -40,8 +40,8 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 * MD5 hash caching (`get_file_hash`) generates and stores a `.jpg` thumbnail (up to 1280px) in a persistent Docker volume (`thumbnail-cache`) only when requested. FFmpeg samples frames at 15/35/55/75% of the video and keeps the most detailed one, so black fades, title cards and blurry transitions are skipped. The video list is cached for 30 seconds, so new files show up within moments of a refresh.
 * The UI letterboxes non-16:9 thumbnails (portrait, 4:3, ultra-wide) over a blurred copy of themselves instead of cropping, and tints the page with each thumbnail's dominant colour.
 
-### 4. Global Passkey Authentication
-* The entire platform is locked behind a single shared passkey (`SITE_PASSWORD`, required).
+### 4. Passkey Authentication
+* Each site is locked behind its own shared passkey: `SITE_PASSWORD` for the public site and `PRIVATE_SITE_PASSWORD` for the private site. Neither password works on the other site, and each site has its own session cookie.
 * Login creates a random server-side session token (stored hashed, persisted in the cache volume so restarts keep you signed in). The cookie holds only that token and is `HttpOnly`, `SameSite=Lax`, and `Secure` over HTTPS.
 * Sessions last 12 hours, or 30 days with **Remember me**. A logout button invalidates the session server-side, and the UI returns to the login screen automatically when a session expires.
 * Failed logins are rate limited per client IP (5 attempts, then a 15 minute lockout).
@@ -123,7 +123,7 @@ Everything you can change lives in one git-ignored file, **`.env`**. Copy [`.env
 | **Login and sessions** | `SESSION_HOURS` (12), `REMEMBER_DAYS` (30), `MAX_FAILED_LOGINS` (5), `LOGIN_LOCKOUT_MINUTES` (15) | `docker compose up -d` |
 | **Performance** | `LIBRARY_RESCAN_SECONDS` (30), `WARM_MAX_MB_PER_SEC` (12), `PRIVATE_WARM_MAX_MB_PER_SEC` (12) | `docker compose up -d` |
 
-Only the folders, passwords and tokens are needed. Anything you leave out (or leave empty) uses the default shown in brackets. Not in `.env`: the local ports (public `8080`, private `8081`), the Cloudflare address-to-site mapping (set in the dashboard, see [CLOUDFLARE.md](./CLOUDFLARE.md)) and the private site's colours (top of `frontend/theme.private.css`).
+Only the folders, passwords and tokens are needed. Anything you leave out (or leave empty) uses the default shown in brackets. Not in `.env`: the local ports (set in the `Vagrantfile`), the Cloudflare address-to-site mapping (set in the dashboard, see [CLOUDFLARE.md](./CLOUDFLARE.md)) and the private site's colours (top of `frontend/theme.private.css`).
 
 > [!IMPORTANT]
 > The two library folders must be **different and neither inside the other**. Each site scans its folder recursively, so a private folder such as `E:/Private` inside a public `E:/` would show up on the public site. `vagrant up` / `reload` refuses to continue if the folders are nested or identical.
@@ -133,7 +133,7 @@ To **swap which folder is public and which is private**, swap the two path value
 vagrant ssh -c "cd /vagrant && docker compose rm -sf backend backend-private && docker volume rm vagrant_thumbnail-cache vagrant_thumbnail-cache-private && docker compose up -d && docker compose restart nginx nginx-private"
 ```
 
-### Private Site (`your-private-hostname`)
+### Private Site
 A second, **fully separate** copy of the site for your own photos and videos: its own library folder, password, backend, frontend, thumbnail cache, Docker network and Cloudflare tunnel, with a darker "Noir red" look (and a PRIVATE tag by the logo). Its services live in the same `docker-compose.yml`, marked with the profile `private`, so **one setting in `.env` turns it on or off**.
 
 ```
@@ -148,7 +148,7 @@ your-private-hostname -> Cloudflare -> video-tunnel-private -> video-proxy-priva
 2. `vagrant reload` (mounts the folder, opens port 8081).
 3. `vagrant ssh -c "cd /vagrant && docker compose up -d --build && docker compose restart nginx nginx-private"`
 
-After that it starts with the VM like everything else, and every normal `docker compose up -d` includes it. It's reachable at `http://<vm-address>:81`, `http://localhost:<private-port>` and, once the Cloudflare route exists, `https://your-private-hostname`.
+After that it starts with the VM like everything else, and every normal `docker compose up -d` includes it. Its addresses are listed under [Access Points](#-access-points).
 
 **Check on it**
 ```bash
@@ -201,13 +201,13 @@ docker logs video-backend --tail 50
 
 ---
 
-## 🌐 Public Access Endpoints
+## 🌐 Access Points
 
-* **Public Domain**: `https://your-public-hostname` *(via Cloudflare Tunnel)*
-* **Local VM Static IP**: `http://<vm-address>`
-* **Local Host Forwarded Port**: `http://localhost:<port>`
+Addresses and ports are defined in the `Vagrantfile` (VM address and port forwarding) and in the Cloudflare dashboard (public addresses). They are not repeated here, so this section stays correct when they change.
 
-**Private site** *(only when `COMPOSE_PROFILES=private`)*
-* **Private Domain**: `https://your-private-hostname` *(via its own tunnel)*
-* **Local VM Static IP**: `http://<vm-address>:81`
-* **Local Host Forwarded Port**: `http://localhost:<private-port>`
+| Site | From outside your network | On your PC | On your local network |
+| :--- | :--- | :--- | :--- |
+| **Public** (always on) | The public hostname set up in Cloudflare (see [CLOUDFLARE.md](./CLOUDFLARE.md)) | The forwarded port in the `Vagrantfile` (`forwarded_port` for guest port 80) | The VM's static address in the `Vagrantfile` (`private_network`), on port 80 |
+| **Private** (only with `COMPOSE_PROFILES=private`) | Its own hostname, set up in Cloudflare; not published in this repository | The forwarded port in the `Vagrantfile` (`forwarded_port` for guest port 81) | The VM's static address, on port 81 |
+
+Each site has its own password (`SITE_PASSWORD` and `PRIVATE_SITE_PASSWORD` in `.env`).

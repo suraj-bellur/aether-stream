@@ -1,6 +1,6 @@
 # Two sites in one file:
 #   PUBLIC  (your-public-hostname) - always runs.
-#   PRIVATE (your-private-hostname)    - the services marked profiles: ["private"]. They run only
+#   PRIVATE                        - the services marked profiles: ["private"]. They run only
 #                                      when .env contains COMPOSE_PROFILES=private (README: "Private Site").
 # Settings come from .env; see .env.example and the README's "Settings (.env)" table.
 
