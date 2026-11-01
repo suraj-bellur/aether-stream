@@ -11,8 +11,8 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 | **Virtualization & VM** | **Vagrant** + **VirtualBox** | Ubuntu 22.04 LTS (`ubuntu/jammy64`) environment setup |
 | **Orchestration** | **Docker** & **Docker Compose** | Containerized microservice lifecycle & network management |
 | **Backend Service** | **Python 3.11** + **FastAPI** + **Uvicorn** | Dynamic file scanner, metadata parser, authentication |
-| **Media Processing** | **FFmpeg** | On-demand single-frame thumbnail generation |
-| **Frontend Web App** | **Vanilla JS (ES6+)** + **CSS3** | Cinema-grade dark UI, passkey login, search/sort, resume playback, responsive grid |
+| **Media Processing** | **FFmpeg** | On-demand thumbnails: best-of-several frame selection |
+| **Frontend Web App** | **Vanilla JS (ES6+)** + **CSS3** | Ambient cinema UI (colour-adaptive theme, card→player morph, hover previews), passkey login, search/sort, resume & up-next playback |
 | **Web Gateway** | **Nginx** (`nginx:alpine`) | Reverse proxy, secure video streaming (`sendfile`), route protection (`auth_request`) |
 | **Remote Access & SSL** | **Cloudflare Tunnels** + **GoDaddy DNS** | Zero-trust HTTPS tunnel (`https://your-public-hostname`) |
 
@@ -33,7 +33,8 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 
 ### 3. Dynamic File Discovery & On-Demand Thumbnails
 * Adding a `.mp4`, `.mkv`, `.webm`, or `.mov` file to the host folder immediately surfaces it on web page refresh.
-* MD5 hash caching (`get_file_hash`) generates and stores a single-frame `.jpg` thumbnail in a persistent Docker volume (`thumbnail-cache`) only when requested. The video list is cached for 30 seconds, so new files show up within moments of a refresh.
+* MD5 hash caching (`get_file_hash`) generates and stores a `.jpg` thumbnail (up to 1280px) in a persistent Docker volume (`thumbnail-cache`) only when requested. FFmpeg samples frames at 15/35/55/75% of the video and keeps the most detailed one, so black fades, title cards and blurry transitions are skipped. The video list is cached for 30 seconds, so new files show up within moments of a refresh.
+* The UI letterboxes non-16:9 thumbnails (portrait, 4:3, ultra-wide) over a blurred copy of themselves instead of cropping, and tints the page with each thumbnail's dominant colour.
 
 ### 4. Global Passkey Authentication
 * The entire platform is locked behind a single shared passkey (`SITE_PASSWORD`, required).

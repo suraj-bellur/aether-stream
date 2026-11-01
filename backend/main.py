@@ -49,32 +49,86 @@ def safe_join(base: str, relative: str) -> str:
     return full
 
 
+# Bump THUMB_VERSION whenever the selection logic changes so stale thumbnails regenerate
+THUMB_VERSION = "v2"
+THUMB_MAX_EDGE = 1280
+THUMB_CANDIDATE_POINTS = (0.15, 0.35, 0.55, 0.75)
+# Each thumbnail runs several ffmpeg passes; cap how many generate at once
+_thumb_semaphore = threading.BoundedSemaphore(3)
+
+
+def probe_duration(video_path: str) -> float:
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", video_path],
+            capture_output=True, text=True, timeout=30,
+        )
+        return float(result.stdout.strip())
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return 0.0
+
+
 def generate_thumbnail(video_path: str, thumbnail_path: str) -> bool:
-    """Extract a single frame (5s in, or the first frame for short clips) as a 16:9-friendly JPEG."""
+    """Pick a representative, detailed frame and save it as a JPEG.
+
+    A frame is sampled at several points through the video (ffmpeg's `thumbnail`
+    filter picks the most representative frame of a short burst at each point),
+    and the candidate with the largest JPEG wins: black fades, title cards and
+    blurry transitions compress to tiny files, detailed scenes do not.
+    """
     if os.path.exists(thumbnail_path):
         return True
-    tmp_path = f"{thumbnail_path}.{secrets.token_hex(4)}.tmp.jpg"
-    try:
-        for timestamp in ("00:00:05", "00:00:00"):
-            command = [
-                "ffmpeg", "-y",
-                "-ss", timestamp, "-i", video_path,
-                "-frames:v", "1",
-                "-vf", "scale=640:-2",
-                "-q:v", "3",
-                tmp_path,
-            ]
-            result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if result.returncode == 0 and os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
-                os.replace(tmp_path, thumbnail_path)
-                return True
-        return False
-    except Exception as e:
-        print(f"Error generating thumbnail for {video_path}: {e}")
-        return False
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+    with _thumb_semaphore:
+        if os.path.exists(thumbnail_path):
+            return True
+        duration = probe_duration(video_path)
+        if duration > 2:
+            timestamps = [duration * p for p in THUMB_CANDIDATE_POINTS]
+        else:
+            timestamps = [0.0]
+        scale = (f"scale='min({THUMB_MAX_EDGE},iw)':'min({THUMB_MAX_EDGE},ih)'"
+                 ":force_original_aspect_ratio=decrease:force_divisible_by=2")
+        token = secrets.token_hex(4)
+        candidates = []
+        try:
+            for i, ts in enumerate(timestamps):
+                tmp_path = f"{thumbnail_path}.{token}.{i}.tmp.jpg"
+                candidates.append(tmp_path)
+                command = [
+                    "ffmpeg", "-y", "-v", "error",
+                    "-ss", f"{ts:.2f}", "-i", video_path,
+                    "-an", "-sn",
+                    "-vf", f"thumbnail=40,{scale}",
+                    "-frames:v", "1",
+                    "-q:v", "3",
+                    tmp_path,
+                ]
+                subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+
+            produced = [p for p in candidates if os.path.exists(p) and os.path.getsize(p) > 0]
+            if not produced:
+                # Last resort: the very first frame, no filters beyond scaling
+                tmp_path = f"{thumbnail_path}.{token}.first.tmp.jpg"
+                candidates.append(tmp_path)
+                subprocess.run(
+                    ["ffmpeg", "-y", "-v", "error", "-i", video_path, "-frames:v", "1",
+                     "-vf", scale, "-q:v", "3", tmp_path],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60,
+                )
+                produced = [tmp_path] if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0 else []
+            if not produced:
+                return False
+
+            os.replace(max(produced, key=os.path.getsize), thumbnail_path)
+            return True
+        except Exception as e:
+            print(f"Error generating thumbnail for {video_path}: {e}")
+            return False
+        finally:
+            for path in candidates:
+                if os.path.exists(path):
+                    os.remove(path)
 
 
 def format_size(size_in_bytes: int) -> str:
@@ -298,7 +352,7 @@ def get_thumbnail(video_path: str):
         raise HTTPException(status_code=404, detail="Video file not found")
         
     file_hash = get_file_hash(video_path)
-    thumb_filename = f"{file_hash}_thumb.jpg"
+    thumb_filename = f"{file_hash}_{THUMB_VERSION}.jpg"
     thumb_path = os.path.join(THUMBNAIL_DIR, thumb_filename)
     
     if not os.path.exists(thumb_path):

@@ -3,175 +3,223 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0f0f10">
+  <meta name="theme-color" content="#06060a">
+  <meta name="color-scheme" content="dark">
   <title>Aether Stream</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=7.0">
 </head>
 <body>
 
+  <!-- Icon sprite -->
+  <svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></g></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></g></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></g></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></g></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></g></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path fill="currentColor" d="M19 19.5v-15a1 1 0 0 0-1.55-.83L7.5 10.4V5a1 1 0 0 0-2 0v14a1 1 0 0 0 2 0v-5.4l9.95 6.73A1 1 0 0 0 19 19.5z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path fill="currentColor" d="M5 4.5v15a1 1 0 0 0 1.55.83l9.95-6.73V19a1 1 0 0 0 2 0V5a1 1 0 0 0-2 0v5.4L6.55 3.67A1 1 0 0 0 5 4.5z"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M7 3v18M17 3v18M2 12h20M2 7.5h5M2 16.5h5M17 7.5h5M17 16.5h5"/></g></symbol>
+  </svg>
+
+  <!-- Ambient background (tinted by the featured video) -->
+  <div class="aurora" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+  <div class="grain" aria-hidden="true"></div>
+
   <!-- Authentication Screen -->
   <div id="auth-screen" class="auth-screen hidden">
-    <div class="auth-container">
-      <div class="brand-logo auth-logo"><span class="brand-letter">A</span></div>
-      <h1 class="auth-title">Welcome back</h1>
-      <p class="auth-subtitle">Enter your passkey to open your library.</p>
+    <div class="auth-card" id="auth-card">
+      <div class="auth-mark"><span class="logo-mark logo-mark-lg"><svg><use href="#i-play"/></svg></span></div>
+      <h1 class="auth-title">Aether <span class="text-grad">Stream</span></h1>
+      <p class="auth-subtitle">Your private cinema. Enter the passkey to step inside.</p>
       <form id="auth-form" class="auth-form">
-        <input type="password" id="auth-password" class="auth-input" placeholder="Passkey" required autocomplete="current-password" aria-label="Passkey">
-        <label class="auth-remember">
+        <div class="field">
+          <input type="password" id="auth-password" class="field-input" placeholder=" " required autocomplete="current-password">
+          <label for="auth-password" class="field-label">Passkey</label>
+        </div>
+        <label class="switch">
           <input type="checkbox" id="auth-remember">
+          <span class="switch-track"><span class="switch-thumb"></span></span>
           <span>Remember me for 30 days</span>
         </label>
-        <button type="submit" class="auth-submit" id="auth-submit-btn">Unlock</button>
+        <button type="submit" class="btn btn-primary btn-block" id="auth-submit-btn">
+          <span id="auth-submit-label">Unlock</span>
+          <svg><use href="#i-arrow-right"/></svg>
+        </button>
       </form>
       <p id="auth-error" class="auth-error hidden" role="alert">Incorrect passkey. Please try again.</p>
     </div>
   </div>
 
-  <div class="app-layout hidden" id="main-app">
+  <div class="app hidden" id="main-app">
 
-    <!-- Sidebar Navigation (expands on hover on desktop, bottom bar on mobile) -->
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-logo"><span class="brand-letter">A</span></div>
+    <!-- Floating top bar -->
+    <header class="topbar" id="topbar">
+      <a class="brand" href="#" id="brand-link" aria-label="Aether Stream home">
+        <span class="logo-mark"><svg><use href="#i-play"/></svg></span>
         <span class="brand-name">Aether</span>
-      </div>
-      <nav class="sidebar-nav" aria-label="Library">
-        <button class="nav-item active" data-filter="all" aria-label="All videos">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-          <span class="nav-label">Home</span>
-        </button>
-        <button class="nav-item" data-filter="continue" aria-label="Continue watching">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          <span class="nav-label">Continue</span>
-        </button>
-        <button class="nav-item" data-filter="large" aria-label="Large files">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-          <span class="nav-label">Large</span>
-        </button>
-        <button class="nav-item" id="nav-random-btn" aria-label="Play a random video">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-          <span class="nav-label">Shuffle</span>
-        </button>
-        <button class="nav-item nav-logout" id="nav-logout-btn" aria-label="Log out">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          <span class="nav-label">Log out</span>
-        </button>
+      </a>
+
+      <nav class="seg" id="seg-nav" aria-label="Library">
+        <span class="seg-indicator" aria-hidden="true"></span>
+        <button class="seg-item active" data-filter="all"><svg><use href="#i-home"/></svg><span>Home</span></button>
+        <button class="seg-item" data-filter="continue"><svg><use href="#i-clock"/></svg><span>Continue</span></button>
+        <button class="seg-item" data-filter="large"><svg><use href="#i-box"/></svg><span>Large</span></button>
       </nav>
-    </aside>
 
-    <!-- Main Content -->
-    <main class="main-content">
-
-      <!-- Top bar: search + sort -->
-      <header class="topbar">
-        <div class="search-bar-container">
-          <svg class="search-icon-input" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="search-input" placeholder="Search your library" autocomplete="off" aria-label="Search videos">
-          <button id="clear-search-btn" class="clear-btn hidden" aria-label="Clear search">&times;</button>
+      <div class="topbar-tools">
+        <div class="search">
+          <svg class="search-icon"><use href="#i-search"/></svg>
+          <input type="text" id="search-input" placeholder="Search library" autocomplete="off" spellcheck="false" aria-label="Search videos">
+          <kbd class="search-kbd" aria-hidden="true">/</kbd>
+          <button id="clear-search-btn" class="search-clear hidden" aria-label="Clear search"><svg><use href="#i-close"/></svg></button>
         </div>
-        <label class="sort-wrap">
+        <label class="select-wrap">
           <span class="sr-only">Sort by</span>
-          <select id="sort-select" class="sort-select">
+          <select id="sort-select" class="select">
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
             <option value="name">Name A–Z</option>
             <option value="largest">Largest</option>
           </select>
+          <svg class="select-chevron"><use href="#i-chevron-down"/></svg>
         </label>
-      </header>
+        <button class="icon-btn" id="nav-random-btn" aria-label="Play a random video" title="Shuffle"><svg><use href="#i-shuffle"/></svg></button>
+        <button class="icon-btn" id="nav-logout-btn" aria-label="Log out" title="Log out"><svg><use href="#i-logout"/></svg></button>
+      </div>
+    </header>
 
-      <!-- Hero Billboard -->
-      <section class="hero-billboard hidden" id="hero-section">
-        <div class="hero-image" id="hero-backdrop"></div>
-        <div class="hero-vignette"></div>
-        <div class="hero-vignette-bottom"></div>
-        <div class="hero-content">
-          <p class="hero-eyebrow">Featured</p>
-          <h1 class="hero-title" id="hero-title">Your library</h1>
-          <div class="hero-meta">
-            <span id="hero-year-badge"></span>
-            <span class="maturity-rating">HD</span>
-            <span id="hero-size-badge"></span>
+    <main class="main">
+
+      <!-- Hero stage -->
+      <section class="hero hidden" id="hero-section" aria-label="Featured">
+        <div class="hero-ambient" aria-hidden="true">
+          <div class="ambient-layer"></div>
+          <div class="ambient-layer"></div>
+        </div>
+
+        <div class="hero-inner">
+          <div class="hero-copy" id="hero-copy">
+            <p class="hero-eyebrow"><span class="pulse-dot"></span>Featured<span class="hero-index" id="hero-index"></span></p>
+            <h1 class="hero-title" id="hero-title"></h1>
+            <div class="hero-meta" id="hero-meta"></div>
+            <div class="hero-progress hidden" id="hero-progress"><span></span></div>
+            <div class="hero-actions">
+              <button class="btn btn-primary btn-lg" id="hero-play-btn">
+                <svg><use href="#i-play"/></svg><span id="hero-play-label">Play</span>
+              </button>
+              <button class="btn btn-ghost btn-lg" id="hero-next-btn">
+                <span>Next pick</span><svg><use href="#i-chevron-right"/></svg>
+              </button>
+            </div>
           </div>
-          <div class="hero-buttons">
-            <button class="btn-play" id="hero-play-btn">
-              <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              Play
-            </button>
+
+          <div class="hero-stage" id="hero-stage">
+            <div class="hero-screen" id="hero-screen">
+              <div class="frame-layer"><div class="frame-fill"></div><img class="frame-img" alt=""></div>
+              <div class="frame-layer"><div class="frame-fill"></div><img class="frame-img" alt=""></div>
+              <div class="screen-glare" aria-hidden="true"></div>
+              <button class="screen-play" id="hero-screen-play" aria-label="Play featured video"><svg><use href="#i-play"/></svg></button>
+            </div>
           </div>
         </div>
+
+        <div class="hero-reel" id="hero-reel" role="tablist" aria-label="Featured picks"></div>
       </section>
 
-      <!-- Video Grid Rows -->
-      <section class="catalog-section" id="catalog-section">
-        <div class="row-header">
-          <h2 class="row-title" id="row-title">All videos</h2>
-          <span class="row-count" id="row-count"></span>
+      <!-- Continue watching rail -->
+      <section class="rail-section hidden" id="continue-section" aria-label="Continue watching">
+        <div class="section-head">
+          <h2 class="section-title">Continue watching</h2>
+          <button class="link-btn" id="continue-all-btn">See all<svg><use href="#i-chevron-right"/></svg></button>
+        </div>
+        <div class="rail" id="continue-rail"></div>
+      </section>
+
+      <!-- Catalog -->
+      <section class="catalog" id="catalog-section">
+        <div class="section-head">
+          <h2 class="section-title" id="row-title">All videos</h2>
+          <span class="section-count" id="row-count"></span>
         </div>
 
-        <!-- Skeleton -->
-        <div id="skeleton-grid" class="video-grid">
-          <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+        <div id="skeleton-grid" class="grid">
+          <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+          <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
         </div>
 
-        <!-- Empty -->
-        <div id="empty-state" class="empty-state hidden">
+        <div id="empty-state" class="empty hidden">
+          <div class="empty-icon"><svg><use href="#i-film"/></svg></div>
           <p id="empty-desc">No titles found.</p>
         </div>
 
-        <!-- Grid -->
-        <div id="video-grid" class="video-grid hidden"></div>
-
-        <!-- Pagination -->
-        <div id="pagination-wrapper" class="pagination-wrapper hidden">
-          <button id="prev-page-btn" class="pagination-btn" aria-label="Previous page" disabled>
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          </button>
-          <div id="page-numbers" class="page-numbers"></div>
-          <button id="next-page-btn" class="pagination-btn" aria-label="Next page">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </button>
-        </div>
+        <div id="video-grid" class="grid hidden"></div>
+        <div id="grid-sentinel" class="grid-sentinel" aria-hidden="true"></div>
       </section>
 
-      <!-- Footer -->
-      <footer class="app-footer">
-        <p>Aether Stream &bull; <span id="video-count-text">0 Videos</span></p>
+      <footer class="footer">
+        <p>Aether Stream &middot; <span id="video-count-text">0 videos</span></p>
       </footer>
     </main>
   </div>
 
-  <!-- Cinema Player Modal -->
-  <div id="player-modal" class="player-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Video player">
-    <div class="modal-window">
-      <div class="modal-top-bar">
-        <h2 class="modal-title" id="modal-title"></h2>
-        <div class="modal-actions">
-          <button id="modal-prev-btn" class="modal-action-btn" aria-label="Previous video" title="Previous">
-            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"></polygon><rect x="5" y="4" width="2.5" height="16"></rect></svg>
-          </button>
-          <button id="modal-next-btn" class="modal-action-btn" aria-label="Next video" title="Next">
-            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"></polygon><rect x="16.5" y="4" width="2.5" height="16"></rect></svg>
-          </button>
-          <button id="modal-shuffle-btn" class="modal-action-btn" aria-label="Play a random video" title="Random video">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-          </button>
-          <button id="modal-close-btn" class="modal-action-btn" aria-label="Close player" title="Close (Esc)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
-        </div>
+  <!-- Cinema Player -->
+  <div id="player-modal" class="player hidden" role="dialog" aria-modal="true" aria-label="Video player">
+    <canvas class="player-ambilight" id="player-ambilight" width="32" height="18" aria-hidden="true"></canvas>
+
+    <div class="player-top">
+      <div class="player-heading">
+        <p class="player-eyebrow" id="player-position"></p>
+        <h2 class="player-title" id="modal-title"></h2>
       </div>
-      <div class="video-screen-container">
-        <video id="main-video-player" controls controlsList="nodownload" oncontextmenu="return false;" preload="auto" playsinline>
-          Your browser does not support HTML5 video playback.
-        </video>
+      <div class="player-actions">
+        <button id="modal-prev-btn" class="icon-btn" aria-label="Previous video" title="Previous (P)"><svg><use href="#i-prev"/></svg></button>
+        <button id="modal-next-btn" class="icon-btn" aria-label="Next video" title="Next (N)"><svg><use href="#i-next"/></svg></button>
+        <button id="modal-shuffle-btn" class="icon-btn" aria-label="Play a random video" title="Random video"><svg><use href="#i-shuffle"/></svg></button>
+        <button id="modal-close-btn" class="icon-btn" aria-label="Close player" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
       </div>
     </div>
+
+    <div class="player-screen" id="player-screen">
+      <video id="main-video-player" controls controlsList="nodownload" preload="auto" playsinline>
+        Your browser does not support HTML5 video playback.
+      </video>
+
+      <div class="player-toast hidden" id="player-toast" role="status">
+        <span id="player-toast-text"></span>
+        <button class="toast-action" id="player-toast-action"></button>
+      </div>
+
+      <div class="upnext hidden" id="upnext">
+        <div class="upnext-thumb" id="upnext-thumb"></div>
+        <div class="upnext-info">
+          <p class="upnext-label">Up next in <span id="upnext-count"></span>s</p>
+          <p class="upnext-title" id="upnext-title"></p>
+          <div class="upnext-actions">
+            <button class="btn btn-primary btn-sm" id="upnext-play"><svg><use href="#i-play"/></svg>Play now</button>
+            <button class="btn btn-ghost btn-sm" id="upnext-cancel">Cancel</button>
+          </div>
+        </div>
+        <div class="upnext-bar"><span></span></div>
+      </div>
+    </div>
+
+    <p class="player-hint">Space play &middot; &larr;/&rarr; seek &middot; F fullscreen &middot; M mute &middot; N/P next/prev &middot; Esc close</p>
   </div>
 
-  <script src="app.js?v=7.0"></script>
+  <script src="app.js?v=8.0"></script>
 </body>
 </html>
