@@ -11,8 +11,7 @@ Vagrant.configure("2") do |config|
   # Forward port 80 (HTTP) to host port 8080 (optional backup access method)
   config.vm.network "forwarded_port", guest: 80, host: 8080, auto_correct: true
 
-  # Mount host video directory directly into the VM (Zero-Copy)
-  # Host Path: E:/
+  # Mount the host media folder (named below) directly into the VM (Zero-Copy)
   # Guest Path: /media/videos
   config.vm.synced_folder "E:/", "/media/videos",
     create: true,
