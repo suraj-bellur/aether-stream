@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Microservice 1: Python FastAPI Backend (Video Streaming & Thumbnail service)
   backend:
@@ -50,7 +48,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: video-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --url http://nginx:80
+    command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
     depends_on:
