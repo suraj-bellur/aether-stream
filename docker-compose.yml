@@ -1,15 +1,36 @@
+# Two sites in one file:
+#   PUBLIC  (your-public-hostname) - always runs.
+#   PRIVATE (your-private-hostname)    - the services marked profiles: ["private"]. They run only
+#                                      when .env contains COMPOSE_PROFILES=private (README: "Private Site").
+# Settings come from .env; see .env.example and the README's "Settings (.env)" table.
+
+# Optional tuning shared by both backends. Empty values use the defaults in backend/main.py.
+x-backend-tuning: &backend-tuning
+  SESSION_HOURS: ${SESSION_HOURS:-}
+  REMEMBER_DAYS: ${REMEMBER_DAYS:-}
+  MAX_FAILED_LOGINS: ${MAX_FAILED_LOGINS:-}
+  LOGIN_LOCKOUT_MINUTES: ${LOGIN_LOCKOUT_MINUTES:-}
+  LIBRARY_RESCAN_SECONDS: ${LIBRARY_RESCAN_SECONDS:-}
+
 services:
+  # ------------------------------------------------------------------
+  # PUBLIC SITE
+  # ------------------------------------------------------------------
+
   # Microservice 1: Python FastAPI Backend (Video Streaming & Thumbnail service)
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: video-backend
+    # Explicit list instead of env_file: the whole .env also holds the private site's
+    # password and tunnel token, which this container must never see.
     environment:
-      - VIDEO_DIR=/media/videos
-      - CACHE_DIR=/app/cache
-    env_file:
-      - .env
+      <<: *backend-tuning
+      VIDEO_DIR: /media/videos
+      CACHE_DIR: /app/cache
+      SITE_PASSWORD: ${SITE_PASSWORD:-}
+      WARM_MAX_MB_PER_SEC: ${WARM_MAX_MB_PER_SEC:-}
     volumes:
       # Read-only bind mount of host video folder
       - /media/videos:/media/videos:ro
@@ -54,6 +75,68 @@ services:
     depends_on:
       - nginx
 
+  # ------------------------------------------------------------------
+  # PRIVATE SITE (only with COMPOSE_PROFILES=private)
+  # Own folder, password, cookie, cache, gateway, tunnel and Docker network: nothing is shared
+  # with the public site except the code in ./backend and ./frontend.
+  # ------------------------------------------------------------------
+  backend-private:
+    profiles: ["private"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: video-backend-private
+    environment:
+      <<: *backend-tuning
+      VIDEO_DIR: /media/videos
+      CACHE_DIR: /app/cache
+      SITE_PASSWORD: ${PRIVATE_SITE_PASSWORD:-}
+      AUTH_COOKIE_NAME: aether_private_session
+      WARM_MAX_MB_PER_SEC: ${PRIVATE_WARM_MAX_MB_PER_SEC:-}
+    volumes:
+      # The private Windows folder (PRIVATE_MEDIA_DIR), mounted into the VM at /media/private
+      - /media/private:/media/videos:ro
+      - ./backend:/app
+      - thumbnail-cache-private:/app/cache
+    networks: [private]
+    restart: unless-stopped
+
+  # Gateway AND web UI: serves the same static files as the public frontend, with the
+  # Noir red theme, and proxies /api to backend-private (so no separate frontend container).
+  nginx-private:
+    profiles: ["private"]
+    image: nginx:alpine
+    container_name: video-proxy-private
+    ports:
+      # Port 81 inside the VM; the Vagrantfile forwards it to port 8081 on Windows
+      - "81:80"
+    volumes:
+      - ./nginx/nginx.private.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+      # Noir red theme replaces the (empty) public theme.css
+      - ./frontend/theme.private.css:/usr/share/nginx/html/theme.css:ro
+      - /media/private:/media/private:ro
+    depends_on:
+      - backend-private
+    networks: [private]
+    restart: unless-stopped
+
+  # Its own tunnel (token from PRIVATE_TUNNEL_TOKEN). Cloudflare route: http://nginx-private:80
+  cloudflared-private:
+    profiles: ["private"]
+    image: cloudflare/cloudflared:latest
+    container_name: video-tunnel-private
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${PRIVATE_TUNNEL_TOKEN:-}
+    depends_on:
+      - nginx-private
+    networks: [private]
+
+networks:
+  private:
+
 volumes:
   thumbnail-cache:
-
+  thumbnail-cache-private:
