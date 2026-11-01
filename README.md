@@ -21,7 +21,7 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 ## 🧩 Architectural Concepts & Engineering Design
 
 ### 1. Zero-Copy Host Storage Mounting
-* Large video and photo collections (50GB+) remain on the host Windows machine (currently the external drive `E:/`).
+* Large video and photo collections (50GB+) remain on the host Windows machine, in the folder set in the `Vagrantfile`.
 * VirtualBox Synced Folders mount this path into the Ubuntu VM at `/media/videos`.
 * Docker Compose bind-mounts `/media/videos` **read-only** (`:ro`) into the `backend` and `nginx` containers.
 * **Benefit**: Zero disk duplication, zero upload overhead, instant availability of new videos.
@@ -149,8 +149,12 @@ docker logs video-backend --tail 50
 
 ---
 
-## 🌐 Public Access Endpoints
+## 🌐 Access Points
 
-* **Public Domain**: `https://your-public-hostname` *(via Cloudflare Tunnel)*
-* **Local VM Static IP**: `http://<vm-address>`
-* **Local Host Forwarded Port**: `http://localhost:<port>`
+Addresses and ports are defined in the `Vagrantfile` (VM address and port forwarding) and in the Cloudflare dashboard (public address). They are not repeated here, so this section stays correct when they change.
+
+| From outside your network | On your PC | On your local network |
+| :--- | :--- | :--- |
+| The public hostname set up in Cloudflare (see [CLOUDFLARE.md](./CLOUDFLARE.md)) | The forwarded port in the `Vagrantfile` (`forwarded_port` for guest port 80) | The VM's static address in the `Vagrantfile` (`private_network`), on port 80 |
+
+Log in with the passkey set as `SITE_PASSWORD` in `.env`.
