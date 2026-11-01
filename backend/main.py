@@ -402,12 +402,29 @@ def _add_to_folders(folders: dict, rel_dir: str, kind: str, rel_path: str):
 
 
 def get_library() -> dict:
-    """Return the library, rescanning when the cached copy is older than CACHE_TTL_SECONDS."""
-    with _library_lock:
-        cached = _library_cache["data"]
-        if cached is None or time.time() - _library_cache["timestamp"] >= CACHE_TTL_SECONDS:
-            _scan_library()
+    """Return the library, rescanning in the background once the cached copy is stale.
+
+    Only the very first call (nothing cached yet) waits for a scan; after that a
+    stale copy is served instantly while a fresh scan runs, so a slow drive never
+    delays page loads.
+    """
+    cached = _library_cache["data"]
+    if cached is None:
+        with _library_lock:
+            if _library_cache["data"] is None:
+                _scan_library()
         return _library_cache["data"]
+
+    if time.time() - _library_cache["timestamp"] >= CACHE_TTL_SECONDS and _library_lock.acquire(blocking=False):
+        def refresh():
+            try:
+                _scan_library()
+            except Exception as e:
+                print(f"Library rescan failed: {e}")
+            finally:
+                _library_lock.release()
+        threading.Thread(target=refresh, daemon=True).start()
+    return cached
 
 
 def _scan_library():
@@ -469,6 +486,8 @@ def _scan_library():
         "folders": sorted(folders.values(), key=lambda f: f["path"].lower()),
     }
     _library_cache["timestamp"] = time.time()
+    # New or changed files: let the background warmer pre-render anything missing
+    _warm_wakeup.set()
 
 
 def _attach_photo_meta(photos: list):
@@ -548,18 +567,30 @@ PHOTO_RENDITIONS = {
 _photo_semaphore = threading.BoundedSemaphore(4)
 
 
-def render_photo(src: str, dest: str, max_w: int, max_h: int, quality: int) -> bool:
-    if os.path.exists(dest):
+def photo_rendition_path(photo_path: str, rendition: str) -> str:
+    return os.path.join(THUMBNAIL_DIR, f"{get_file_hash(photo_path)}_{rendition}.jpg")
+
+
+def render_photo(src: str, photo_path: str) -> bool:
+    """Write every missing rendition of a photo from a single read of the original.
+
+    On a slow drive, reading the 10-20MB original dominates the cost, so the grid
+    thumbnail and the viewer copy are always produced together.
+    """
+    missing = [r for r in PHOTO_RENDITIONS if not os.path.exists(photo_rendition_path(photo_path, r))]
+    if not missing:
         return True
     with _photo_semaphore:
-        if os.path.exists(dest):
+        missing = [r for r in missing if not os.path.exists(photo_rendition_path(photo_path, r))]
+        if not missing:
             return True
-        tmp = f"{dest}.{secrets.token_hex(4)}.tmp.jpg"
+        token = secrets.token_hex(4)
+        temps = []
         try:
             with Image.open(src) as img:
                 # Let the JPEG decoder downscale by 1/2, 1/4 or 1/8 while decoding (much faster).
-                # Request a square box so rotated portrait photos are never undersized.
-                edge = min(max_w, max_h)
+                # Size for the largest rendition needed, as a square box so rotated photos are never undersized.
+                edge = max(min(PHOTO_RENDITIONS[r][0], PHOTO_RENDITIONS[r][1]) for r in missing)
                 img.draft("RGB", (edge, edge))
                 img = ImageOps.exif_transpose(img)
                 if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
@@ -568,16 +599,92 @@ def render_photo(src: str, dest: str, max_w: int, max_h: int, quality: int) -> b
                     img.paste(rgba, mask=rgba.split()[-1])
                 elif img.mode != "RGB":
                     img = img.convert("RGB")
-                img.thumbnail((max_w, max_h), Image.LANCZOS)
-                img.save(tmp, "JPEG", quality=quality, optimize=True, progressive=True)
-            os.replace(tmp, dest)
+
+                # Largest first, so each smaller rendition is resized from an already-reduced image
+                for rendition in sorted(missing, key=lambda r: -PHOTO_RENDITIONS[r][0] * PHOTO_RENDITIONS[r][1]):
+                    max_w, max_h, quality = PHOTO_RENDITIONS[rendition]
+                    img.thumbnail((max_w, max_h), Image.LANCZOS)
+                    dest = photo_rendition_path(photo_path, rendition)
+                    tmp = f"{dest}.{token}.tmp.jpg"
+                    temps.append(tmp)
+                    img.save(tmp, "JPEG", quality=quality, optimize=True, progressive=True)
+                    os.replace(tmp, dest)
             return True
         except Exception as e:
             print(f"Error rendering photo {src}: {e}")
             return False
         finally:
-            if os.path.exists(tmp):
-                os.remove(tmp)
+            for tmp in temps:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+
+
+# ------------------------------------------------------------------
+# Background cache warmer
+# ------------------------------------------------------------------
+# Pre-renders every missing video thumbnail and photo rendition so nobody waits on
+# the (slow, USB) media drive while browsing. Reads are throttled so the warmer
+# never starves video playback, which shares the same drive.
+WARM_MAX_MB_PER_SEC = float(os.getenv("WARM_MAX_MB_PER_SEC", "12"))
+_warm_wakeup = threading.Event()
+_warm_failed = set()  # paths that failed once are not retried until the backend restarts
+
+
+def _throttle(started: float, bytes_read: int):
+    if WARM_MAX_MB_PER_SEC <= 0:
+        return
+    budget = bytes_read / (WARM_MAX_MB_PER_SEC * 1024 * 1024)
+    remaining = budget - (time.time() - started)
+    if remaining > 0:
+        time.sleep(remaining)
+
+
+def _warm_cache(library: dict):
+    todo_videos = [
+        v for v in library["videos"]
+        if v["filename"] not in _warm_failed
+        and not os.path.exists(os.path.join(THUMBNAIL_DIR, f"{v['id']}_{THUMB_VERSION}.jpg"))
+    ]
+    todo_photos = [
+        p for p in library["photos"]
+        if p["filename"] not in _warm_failed
+        and any(not os.path.exists(photo_rendition_path(p["filename"], r)) for r in PHOTO_RENDITIONS)
+    ]
+    if not todo_videos and not todo_photos:
+        return
+
+    print(f"Warming cache: {len(todo_videos)} video thumbnails, {len(todo_photos)} photos")
+    started_all = time.time()
+    for video in todo_videos:
+        thumb_path = os.path.join(THUMBNAIL_DIR, f"{video['id']}_{THUMB_VERSION}.jpg")
+        if not generate_thumbnail(os.path.join(VIDEO_DIR, video["filename"]), thumb_path):
+            _warm_failed.add(video["filename"])
+    for photo in todo_photos:
+        started = time.time()
+        if not render_photo(os.path.join(VIDEO_DIR, photo["filename"]), photo["filename"]):
+            _warm_failed.add(photo["filename"])
+        _throttle(started, photo["size_bytes"])
+    print(f"Cache warm in {time.time() - started_all:.0f}s")
+
+
+def _warm_loop():
+    while True:
+        _warm_wakeup.wait()
+        _warm_wakeup.clear()
+        library = _library_cache["data"]
+        if not library:
+            continue
+        try:
+            _warm_cache(library)
+        except Exception as e:
+            print(f"Cache warming stopped: {e}")
+
+
+@app.on_event("startup")
+def start_background_work():
+    threading.Thread(target=_warm_loop, name="cache-warmer", daemon=True).start()
+    # Scan right away so the first visitor never waits for the drive (this also wakes the warmer)
+    threading.Thread(target=get_library, name="initial-scan", daemon=True).start()
 
 
 @app.get("/api/photo/{rendition}/{photo_path:path}")
@@ -591,9 +698,8 @@ def get_photo(rendition: str, photo_path: str):
     if not os.path.isfile(full_path):
         raise HTTPException(status_code=404, detail="Photo not found")
 
-    max_w, max_h, quality = PHOTO_RENDITIONS[rendition]
-    dest = os.path.join(THUMBNAIL_DIR, f"{get_file_hash(photo_path)}_{rendition}.jpg")
-    if render_photo(full_path, dest, max_w, max_h, quality):
+    dest = photo_rendition_path(photo_path, rendition)
+    if os.path.exists(dest) or (render_photo(full_path, photo_path) and os.path.exists(dest)):
         return FileResponse(
             dest,
             media_type="image/jpeg",
