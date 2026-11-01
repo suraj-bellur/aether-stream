@@ -58,11 +58,11 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 
 ```text
 video-streaming/
-├── Vagrantfile               # Ubuntu VM spec (4GB RAM, 4 CPUs, Synced Folders)
+├── Vagrantfile               # Ubuntu VM spec (4GB RAM, 4 CPUs); reads the media folders from .env
 ├── bootstrap.sh              # Shell provisioner installing Docker & FFmpeg
-├── docker-compose.yml        # Orchestrates Backend, Frontend, Nginx, Cloudflared
-├── .env                      # Local secret variables (TUNNEL_TOKEN, SITE_PASSWORD) - Git ignored
-├── .env.example              # Environment template file
+├── docker-compose.yml        # Public site (always) + private site (profile "private"): Backend, Frontend, Nginx, Cloudflared
+├── .env                      # YOUR settings and secrets (folders, passwords, tokens) - Git ignored
+├── .env.example              # Short template of the settings you need - copy it to .env
 ├── .gitignore                # Git exclusion rules
 ├── README.md                 # Developer & Architecture documentation
 ├── DEVOPS.md                 # Detailed Infrastructure & DevOps documentation
@@ -73,10 +73,13 @@ video-streaming/
 ├── frontend/                 # Microservice 2: Cinema Web Application
 │   ├── index.html            # Responsive UI, Passkey Auth overlay, modal layout
 │   ├── styles.css            # Dark mode design system, glassmorphism, CSS grid
+│   ├── theme.css             # Theme overrides (empty: the public site's default look)
+│   ├── theme.private.css     # Private site's "Noir red" theme (accent variables at the top); not served on the public site
 │   ├── app.js                # Auth/session logic, search & sort, player with resume
 │   └── Dockerfile            # Lightweight nginx:alpine image
 └── nginx/                    # Microservice 3: Gateway Reverse Proxy
-    └── nginx.conf            # Routing rules, `auth_request`, stream `sendfile`
+    ├── nginx.conf            # Public site: routing rules, `auth_request`, stream `sendfile`
+    └── nginx.private.conf    # Private site: same rules, private backend and media folder, serves the UI
 ```
 
 ---
@@ -109,12 +112,61 @@ docker compose up -d --build backend
 docker compose up -d
 ```
 
-### Environment Setup (`.env`)
-Create a `.env` file in the root directory:
-```env
-TUNNEL_TOKEN=your_cloudflare_tunnel_token_here
-SITE_PASSWORD=your_secure_passkey_here
+### Settings (`.env`)
+Everything you can change lives in one git-ignored file, **`.env`**. Copy [`.env.example`](./.env.example) to `.env` and fill in the passwords, tokens and folders; the table below lists every setting you can add. Use forward slashes in Windows paths (`E:/Media`), one `KEY=value` per line, no comments after a value.
+
+| Group | Settings | Applies after |
+| :--- | :--- | :--- |
+| **Library folders** | `PUBLIC_MEDIA_DIR` (default `E:/`), `PRIVATE_MEDIA_DIR` | `vagrant reload` |
+| **Public site** | `SITE_PASSWORD`, `TUNNEL_TOKEN` | `docker compose up -d` |
+| **Private site** | `COMPOSE_PROFILES` (`private` = on, empty = off), `PRIVATE_SITE_PASSWORD`, `PRIVATE_TUNNEL_TOKEN` | `vagrant reload`, then `docker compose up -d` |
+| **Login and sessions** | `SESSION_HOURS` (12), `REMEMBER_DAYS` (30), `MAX_FAILED_LOGINS` (5), `LOGIN_LOCKOUT_MINUTES` (15) | `docker compose up -d` |
+| **Performance** | `LIBRARY_RESCAN_SECONDS` (30), `WARM_MAX_MB_PER_SEC` (12), `PRIVATE_WARM_MAX_MB_PER_SEC` (12) | `docker compose up -d` |
+
+Only the folders, passwords and tokens are needed. Anything you leave out (or leave empty) uses the default shown in brackets. Not in `.env`: the local ports (public `8080`, private `8081`), the Cloudflare address-to-site mapping (set in the dashboard, see [CLOUDFLARE.md](./CLOUDFLARE.md)) and the private site's colours (top of `frontend/theme.private.css`).
+
+> [!IMPORTANT]
+> The two library folders must be **different and neither inside the other**. Each site scans its folder recursively, so a private folder such as `E:/Private` inside a public `E:/` would show up on the public site. `vagrant up` / `reload` refuses to continue if the folders are nested or identical.
+
+To **swap which folder is public and which is private**, swap the two path values and run `vagrant reload`, then clear both thumbnail caches (thumbnails are keyed by file path, so a different folder needs a fresh cache):
+```bash
+vagrant ssh -c "cd /vagrant && docker compose rm -sf backend backend-private && docker volume rm vagrant_thumbnail-cache vagrant_thumbnail-cache-private && docker compose up -d && docker compose restart nginx nginx-private"
 ```
+
+### Private Site (`your-private-hostname`)
+A second, **fully separate** copy of the site for your own photos and videos: its own library folder, password, backend, frontend, thumbnail cache, Docker network and Cloudflare tunnel, with a darker "Noir red" look (and a PRIVATE tag by the logo). Its services live in the same `docker-compose.yml`, marked with the profile `private`, so **one setting in `.env` turns it on or off**.
+
+```
+your-private-hostname -> Cloudflare -> video-tunnel-private -> video-proxy-private:80
+   -> /api/* -> video-backend-private:8000   (own password and session cookie, own cache volume)
+   -> /*     -> served by video-proxy-private itself (same UI files + frontend/theme.private.css)
+   media: /media/private (read-only)  <-  PRIVATE_MEDIA_DIR
+```
+
+**Turn it on**
+1. In `.env`: `COMPOSE_PROFILES=private`, `PRIVATE_MEDIA_DIR=...`, `PRIVATE_SITE_PASSWORD=...` (a different password from the public one), and `PRIVATE_TUNNEL_TOKEN=...` (from **Add the private site** in [CLOUDFLARE.md](./CLOUDFLARE.md)).
+2. `vagrant reload` (mounts the folder, opens port 8081).
+3. `vagrant ssh -c "cd /vagrant && docker compose up -d --build && docker compose restart nginx nginx-private"`
+
+After that it starts with the VM like everything else, and every normal `docker compose up -d` includes it. It's reachable at `http://<vm-address>:81`, `http://localhost:<private-port>` and, once the Cloudflare route exists, `https://your-private-hostname`.
+
+**Check on it**
+```bash
+docker compose ps                         # all containers, public and private
+docker logs video-backend-private --tail 50
+docker logs video-tunnel-private --tail 20
+```
+
+**Turn it off** (the public site is not touched)
+1. In `.env`: empty the line, `COMPOSE_PROFILES=`.
+2. Stop the private containers (emptying the setting alone doesn't stop ones that are already running):
+   ```bash
+   vagrant ssh -c "cd /vagrant && docker compose rm -sf backend-private nginx-private cloudflared-private"
+   ```
+3. Optional, to also drop the folder mount and port 8081: `vagrant reload`. To delete its thumbnail cache too: `docker volume rm vagrant_thumbnail-cache-private`.
+4. If you don't want the address any more, remove the tunnel in Cloudflare (**Remove the private site** in [CLOUDFLARE.md](./CLOUDFLARE.md)). To add it again later, repeat **Turn it on**.
+
+Because the private site keeps its own gateway config, a rule changed in `nginx/nginx.conf` (gzip, streaming, auth) must be mirrored in `nginx/nginx.private.conf`. That is deliberate: the public gateway can never be affected by private-site changes.
 
 ### Cache Cleanup
 The backend cleans its cache **automatically every time it starts**: on `docker compose up`, `restart` and `up --build`, and on every VM boot or `vagrant reload` (the container has `restart: unless-stopped`, so Docker starts it on boot). It deletes:
@@ -154,3 +206,8 @@ docker logs video-backend --tail 50
 * **Public Domain**: `https://your-public-hostname` *(via Cloudflare Tunnel)*
 * **Local VM Static IP**: `http://<vm-address>`
 * **Local Host Forwarded Port**: `http://localhost:<port>`
+
+**Private site** *(only when `COMPOSE_PROFILES=private`)*
+* **Private Domain**: `https://your-private-hostname` *(via its own tunnel)*
+* **Local VM Static IP**: `http://<vm-address>:81`
+* **Local Host Forwarded Port**: `http://localhost:<private-port>`

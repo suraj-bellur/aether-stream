@@ -23,10 +23,17 @@ This document outlines the DevOps, Infrastructure, and Deployment strategies imp
 *   **Bind Mounts**: 
     *   We mount `./backend` into the container for live-reloading during development without rebuilding the image.
     *   We mount the host OS's `/media/videos` directory into the containers as read-only (`ro`), allowing the app to stream massive files without duplicating them inside the container.
-*   **Named Volumes**: We use a named volume `thumbnail-cache` so that generated video thumbnails persist even if the backend container is destroyed and recreated.
+*   **Named Volumes**: We use a named volume `thumbnail-cache` so that generated video thumbnails and photo renditions persist even if the backend container is destroyed and recreated. The private site has its own volume, `thumbnail-cache-private`.
 
 ## 6. Configuration & Secrets Management
-*   **Environment Variables & `.env`**: We decouple configuration from code. Sensitive data (like `SITE_PASSWORD` and `TUNNEL_TOKEN`) and environment-specific paths (`VIDEO_DIR`) are passed into the containers at runtime via the `.env` file.
+*   **Environment Variables & `.env`**: We decouple configuration from code. `.env` is the single place to change settings (library folders, passwords, tunnel tokens, the private on/off switch, session and performance tuning); `.env.example` is the short template and the README's "Settings (`.env`)" table lists every option. Docker Compose reads it for the containers, and the `Vagrantfile` reads it for the folder mounts.
+*   **Explicit container environments**: Each backend gets only the variables it needs, listed under `environment:`, rather than the whole `.env` through `env_file`. This keeps the public container from ever seeing the private site's password or tunnel token (and vice versa).
+
+## 6b. The Private Site as a Compose Profile
+*   `docker-compose.yml` also defines a second stack (`backend-private`, `nginx-private`, `cloudflared-private`; the private gateway also serves the web UI files, so there is no separate frontend container) marked `profiles: ["private"]`. Compose starts profile services only when the profile is active, and `COMPOSE_PROFILES=private` in `.env` activates it, so the same line is the on/off switch for Compose and for the Vagrantfile.
+*   The private services sit on their own Docker network (`private`) and use their own volume, gateway config and tunnel token, so nothing but the code in `./backend` and `./frontend` is shared with the public site.
+*   Deactivating the profile does not stop containers that are already running; they are removed explicitly with `docker compose rm -sf backend-private nginx-private cloudflared-private`.
+*   The Vagrantfile mounts the private Windows folder at `/media/private` and refuses to run `up` / `reload` if the public and private folders are identical or nested, which would leak files between the sites.
 
 ## 7. Secure Remote Networking
 *   **Cloudflare Tunnels (`cloudflared`)**: Instead of opening firewall ports or port-forwarding on a router, we run a Cloudflare Tunnel container. It establishes an outbound secure connection to Cloudflare's edge, exposing our local Nginx server safely to the public internet (e.g., `your-public-hostname`).
