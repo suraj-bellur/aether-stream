@@ -111,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const lightboxClose = $('lightbox-close');
   const lightboxPrev = $('lightbox-prev');
   const lightboxNext = $('lightbox-next');
+  const lightboxShuffle = $('lightbox-shuffle');
 
   // App State
   let allVideos = [];
@@ -1353,6 +1354,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lightboxDownload.setAttribute('download', photo.name);
     lightboxPrev.disabled = lbIndex <= 0;
     lightboxNext.disabled = lbIndex >= lbList.length - 1;
+    lightboxShuffle.disabled = lbList.length < 2;
 
     lightbox.classList.add('loading');
     loadImage(photoUrl(photo.filename, 'view'), 30000).then(img => {
@@ -1416,6 +1418,16 @@ document.addEventListener('DOMContentLoaded', () => {
     showLightboxPhoto(delta);
   }
 
+  // Jump to a random photo in the current set, never the one already showing
+  function shufflePhoto() {
+    if (lbList.length < 2) return;
+    let next = lbIndex;
+    while (next === lbIndex) next = Math.floor(Math.random() * lbList.length);
+    const delta = next > lbIndex ? 1 : -1;
+    lbIndex = next;
+    showLightboxPhoto(delta);
+  }
+
   function setZoom(on, e) {
     lightboxImg.classList.toggle('zoomed', on);
     lightbox.classList.toggle('zoomed-mode', on);
@@ -1465,6 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
   lightboxClose.addEventListener('click', () => closeLightbox());
   lightboxPrev.addEventListener('click', () => stepPhoto(-1));
   lightboxNext.addEventListener('click', () => stepPhoto(1));
+  lightboxShuffle.addEventListener('click', shufflePhoto);
   window.addEventListener('resize', () => {
     if (lightboxOpen() && lbList[lbIndex]) sizeLightboxImg(lbList[lbIndex]);
   });
@@ -1736,6 +1749,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Escape') closeLightbox();
       else if (e.key === 'ArrowRight') stepPhoto(1);
       else if (e.key === 'ArrowLeft') stepPhoto(-1);
+      else if (e.key === 'r' || e.key === 'R') shufflePhoto();
       return;
     }
 
