@@ -16,9 +16,8 @@ from PIL import Image, ImageOps
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request, Response, HTTPException, status
 # pyrefly: ignore [missing-import]
-from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
+from fastapi.responses import StreamingResponse, FileResponse
 # pyrefly: ignore [missing-import]
-from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Personal Media Streaming API")
 
@@ -62,7 +61,6 @@ LOGIN_WINDOW_SECONDS = int(env_number("LOGIN_LOCKOUT_MINUTES", 15) * 60)
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 
 # Mount static files for thumbnails
-app.mount("/static/thumbnails", StaticFiles(directory=THUMBNAIL_DIR), name="thumbnails")
 
 
 def get_file_hash(filename: str) -> str:
@@ -537,12 +535,6 @@ def _attach_photo_meta(photos: list):
 def library():
     """Everything the UI needs in one call: videos, photos and the folder tree."""
     return get_library()
-
-
-@app.get("/api/videos")
-def list_videos():
-    """Video list only (kept for compatibility)."""
-    return get_library()["videos"]
 
 
 @app.get("/api/thumbnail/{video_path:path}")

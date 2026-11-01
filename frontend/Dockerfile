@@ -1,11 +1,6 @@
 FROM nginx:alpine
 
-# Copy static frontend web assets
-COPY index.html /usr/share/nginx/html/index.html
-COPY styles.css /usr/share/nginx/html/styles.css
-COPY theme.css /usr/share/nginx/html/theme.css
-COPY app.js /usr/share/nginx/html/app.js
-
+# The web files are mounted from ./frontend by docker-compose.yml, so only the config is copied
 # Copy Nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
