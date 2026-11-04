@@ -41,8 +41,10 @@ sudo apt-get install -y \
 sudo systemctl enable docker
 sudo systemctl start docker
 
-# Add 'vagrant' user to the 'docker' group so docker commands work without sudo
-sudo usermod -aG docker vagrant
+# Add the login user to the 'docker' group so docker commands work without sudo.
+# Defaults to 'vagrant'; the Hetzner server sets DOCKER_USER=deploy (see infra/server).
+DOCKER_USER="${DOCKER_USER:-vagrant}"
+sudo usermod -aG docker "$DOCKER_USER"
 
 echo "=========================================="
 echo " Provisioning Completed Successfully!     "

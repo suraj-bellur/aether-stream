@@ -1,0 +1,42 @@
+#cloud-config
+# First-boot setup for the Aether Stream server (M2). Mirrors Phase 1 sections 7.2 and 7.5.
+# Runs once, on first boot. Output: /var/log/cloud-init-output.log
+# Rendered by Terraform templatefile(): dollar-brace placeholders are Terraform values.
+
+package_update: true
+package_upgrade: true
+packages:
+  - git
+  - curl
+  - unattended-upgrades
+  - cifs-utils
+  - smbclient
+
+users:
+  - name: ${deploy_user}
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+write_files:
+  # Key-only SSH, no root login. "10-" sorts before cloud-init's "50-cloud-init.conf",
+  # and sshd keeps the first value it reads for each setting.
+  - path: /etc/ssh/sshd_config.d/10-hardening.conf
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+
+runcmd:
+  - systemctl restart ssh
+  - git clone --depth 1 --branch ${repo_branch} ${repo_url} /opt/aether-stream
+  - chown -R ${deploy_user}:${deploy_user} /opt/aether-stream
+  # Installs Docker and FFmpeg, and adds the deploy user to the docker group.
+  - DOCKER_USER=${deploy_user} bash /opt/aether-stream/bootstrap.sh
+  - touch /var/lib/aether-stream-ready
+
+final_message: "Aether Stream cloud-init finished after $UPTIME seconds"

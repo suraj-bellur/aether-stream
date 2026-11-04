@@ -29,6 +29,13 @@ resource "hcloud_server" "main" {
     ipv6_enabled = true
   }
 
+  user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
+    deploy_user    = var.deploy_user
+    ssh_public_key = trimspace(file(pathexpand(var.ssh_public_key_path)))
+    repo_url       = var.repo_url
+    repo_branch    = var.repo_branch
+  })
+
   labels = {
     project = var.name
   }

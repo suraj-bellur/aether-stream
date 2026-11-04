@@ -4,6 +4,6 @@ output "server_ipv4" {
 }
 
 output "ssh_command" {
-  description = "Command to log in (root until cloud-init creates the deploy user in M2)."
-  value       = "ssh root@${hcloud_server.main.ipv4_address}"
+  description = "Command to log in. Root login is disabled by cloud-init."
+  value       = "ssh ${var.deploy_user}@${hcloud_server.main.ipv4_address}"
 }
