@@ -16,5 +16,6 @@ if not defined TF_VAR_hcloud_token (
     exit /b 1
 )
 
-terraform -chdir="%~dp0server" %*
+if not defined TF_STACK set "TF_STACK=server"
+terraform -chdir="%~dp0%TF_STACK%" %*
 exit /b %ERRORLEVEL%
