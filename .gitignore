@@ -28,3 +28,11 @@ Thumbs.db
 
 # Local passwords and credentials (never commit)
 .passwords/
+
+# Terraform: state and variable files hold secrets (tunnel token, SMB password)
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/*.tfvars
+!infra/**/*.tfvars.example
+infra/**/crash.log
