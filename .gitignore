@@ -26,3 +26,5 @@ Thumbs.db
 .env
 *.env
 
+# Local passwords and credentials (never commit)
+.passwords/
