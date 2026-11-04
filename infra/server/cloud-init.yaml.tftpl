@@ -1,6 +1,6 @@
 #cloud-config
-# First-boot setup for the Aether Stream server (M2). Mirrors Phase 1 sections 7.2 and 7.5.
-# Runs once, on first boot. Output: /var/log/cloud-init-output.log
+# First-boot setup for the Aether Stream server (M2 and M4). Mirrors Phase 1 sections 7.2 to 7.7.
+# Runs once, on first boot. Output: /var/log/cloud-init-output.log (look for "[aether-setup]").
 # Rendered by Terraform templatefile(): dollar-brace placeholders are Terraform values.
 
 package_update: true
@@ -31,12 +31,71 @@ write_files:
       PasswordAuthentication no
       KbdInteractiveAuthentication no
 
+  # Storage Box login for the read-only public mount (Phase 1 section 7.3).
+  - path: /root/.smbcredentials-public
+    permissions: "0600"
+    owner: root:root
+    content: |
+      username=${smb_username}
+      password=${smb_password}
+
+  # Docker waits for the mount, so containers never start on an empty folder.
+  - path: /etc/systemd/system/docker.service.d/10-wait-for-mount.conf
+    permissions: "0644"
+    content: |
+      [Unit]
+      RequiresMountsFor=/media/videos
+
+  # Staged here, then moved to /opt/aether-stream/.env once the repo is cloned.
+  # TUNNEL_TOKEN stays empty until the tunnel cut-over (M6).
+  - path: /var/lib/aether-stream/env
+    permissions: "0600"
+    owner: root:root
+    content: |
+      SITE_PASSWORD=${site_password}
+      TUNNEL_TOKEN=
+      COMPOSE_PROFILES=
+
+  - path: /usr/local/sbin/aether-setup.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # Stops at the first error, so a failed step is visible in the log and the
+      # ready marker below is never written.
+      set -euo pipefail
+      log() { echo "[aether-setup] $*"; }
+
+      log "mounting the Storage Box at /media/videos"
+      mkdir -p /media/videos
+      grep -q ' /media/videos ' /etc/fstab || echo '//${smb_host}/${smb_username} /media/videos cifs credentials=/root/.smbcredentials-public,ro,file_mode=0444,dir_mode=0555,vers=3.0,_netdev,nofail 0 0' >> /etc/fstab
+      systemctl daemon-reload
+      mounted=0
+      for attempt in 1 2 3 4 5; do
+        if mount /media/videos; then mounted=1; break; fi
+        log "mount attempt $attempt failed, retrying in 10 seconds"
+        sleep 10
+      done
+      if [ "$mounted" != 1 ]; then log "mount failed after 5 attempts"; exit 1; fi
+      findmnt /media/videos
+
+      log "cloning ${repo_url} (${repo_branch})"
+      git clone --depth 1 --branch '${repo_branch}' '${repo_url}' /opt/aether-stream
+      chown -R ${deploy_user}:${deploy_user} /opt/aether-stream
+      install -m 600 -o ${deploy_user} -g ${deploy_user} /var/lib/aether-stream/env /opt/aether-stream/.env
+      shred -u /var/lib/aether-stream/env
+
+      log "installing Docker and FFmpeg"
+      DOCKER_USER=${deploy_user} bash /opt/aether-stream/bootstrap.sh
+
+      log "starting the site (without the Cloudflare tunnel)"
+      sudo -u ${deploy_user} -H bash -c 'cd /opt/aether-stream && docker compose up -d --build backend frontend nginx'
+      sudo -u ${deploy_user} -H docker compose -f /opt/aether-stream/docker-compose.yml ps
+
+      touch /var/lib/aether-stream-ready
+      log "done"
+
 runcmd:
   - systemctl restart ssh
-  - git clone --depth 1 --branch ${repo_branch} ${repo_url} /opt/aether-stream
-  - chown -R ${deploy_user}:${deploy_user} /opt/aether-stream
-  # Installs Docker and FFmpeg, and adds the deploy user to the docker group.
-  - DOCKER_USER=${deploy_user} bash /opt/aether-stream/bootstrap.sh
-  - touch /var/lib/aether-stream-ready
+  - /usr/local/sbin/aether-setup.sh
 
 final_message: "Aether Stream cloud-init finished after $UPTIME seconds"

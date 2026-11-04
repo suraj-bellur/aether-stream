@@ -1,3 +1,12 @@
+# The persistent Storage Box stack (infra/storage) must be applied first.
+# Its usernames, hostnames and generated passwords are read here, so nothing is copied by hand.
+data "terraform_remote_state" "storage" {
+  backend = "local"
+  config = {
+    path = "${path.module}/../storage/terraform.tfstate"
+  }
+}
+
 resource "hcloud_ssh_key" "main" {
   name       = var.name
   public_key = file(pathexpand(var.ssh_public_key_path))
@@ -34,6 +43,10 @@ resource "hcloud_server" "main" {
     ssh_public_key = trimspace(file(pathexpand(var.ssh_public_key_path)))
     repo_url       = var.repo_url
     repo_branch    = var.repo_branch
+    smb_host       = data.terraform_remote_state.storage.outputs.public_host
+    smb_username   = data.terraform_remote_state.storage.outputs.public_username
+    smb_password   = data.terraform_remote_state.storage.outputs.public_password
+    site_password  = var.site_password
   })
 
   labels = {

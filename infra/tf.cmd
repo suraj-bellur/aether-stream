@@ -16,6 +16,10 @@ if not defined TF_VAR_hcloud_token (
     exit /b 1
 )
 
+rem Optional: the site login password you chose (git-ignored file). Only the server stack uses it.
+set "SITE_PW_FILE=%~dp0..\.passwords\aether-stream-site-password"
+if exist "%SITE_PW_FILE%" set /p TF_VAR_site_password=<"%SITE_PW_FILE%"
+
 if not defined TF_STACK set "TF_STACK=server"
 terraform -chdir="%~dp0%TF_STACK%" %*
 exit /b %ERRORLEVEL%

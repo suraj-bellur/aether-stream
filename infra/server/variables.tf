@@ -45,3 +45,18 @@ variable "repo_branch" {
   type        = string
   default     = "feature/hetzner-iac"
 }
+
+variable "site_password" {
+  description = <<-EOT
+    Login password of the site (SITE_PASSWORD in .env). Chosen by you, read from
+    .passwords\aether-stream-site-password by tf.cmd. Only the characters listed in the
+    validation are allowed, so it is safe inside .env and the cloud-init file.
+  EOT
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._@+=:,~-]{8,}$", var.site_password))
+    error_message = "site_password needs at least 8 characters, using only letters, digits and . _ @ + = : , ~ - (no spaces, quotes, $ or #)."
+  }
+}
