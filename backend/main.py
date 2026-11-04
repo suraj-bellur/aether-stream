@@ -694,7 +694,7 @@ def cleanup_cache() -> dict:
     """Delete legacy thumbnails and temp files left behind by interrupted renders.
 
     Runs on every backend start (container start/restart/rebuild and VM boot) and can
-    be run by hand: docker exec video-backend python -c "import main; main.cleanup_cache()"
+    be run by hand: docker exec aether-backend python -c "import main; main.cleanup_cache()"
     Current thumbnails and renditions are never touched.
     """
     removed = {"legacy": 0, "temp": 0}

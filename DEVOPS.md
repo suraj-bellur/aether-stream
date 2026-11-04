@@ -1,4 +1,4 @@
-# Video Streaming Project - DevOps Architecture
+# Aether Stream - DevOps Architecture
 
 This document outlines the DevOps, Infrastructure, and Deployment strategies implemented in this project. By treating infrastructure as code and containerizing applications, we ensure that the environment is reproducible, scalable, and secure.
 

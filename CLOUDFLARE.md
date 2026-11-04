@@ -18,10 +18,10 @@ Because the connection starts from your machine, your home IP is never exposed, 
 Browser -> https://your-public-hostname
   -> Cloudflare edge      (HTTPS ends here; DNS points the name at Cloudflare)
     -> outbound tunnel    (the connection cloudflared opened earlier)
-      -> video-tunnel     (cloudflared container, using TUNNEL_TOKEN)
-        -> video-proxy    (nginx:80, the single entry point)
-          -> /api/*  -> video-backend:8000   (FastAPI: login, library, thumbnails)
-          -> /*      -> video-frontend:80    (the web UI)
+      -> aether-tunnel     (cloudflared container, using TUNNEL_TOKEN)
+        -> aether-proxy    (nginx:80, the single entry point)
+          -> /api/*  -> aether-backend:8000   (FastAPI: login, library, thumbnails)
+          -> /*      -> aether-frontend:80    (the web UI)
 ```
 
 ---
@@ -36,8 +36,8 @@ Browser -> https://your-public-hostname
 | **Tunnel** | Cloudflare Zero Trust -> Networks -> Tunnels | A named connection identity, `aether-stream`. Its ID is inside the token. |
 | **Connector token** | `.env` as `TUNNEL_TOKEN` | Proves to Cloudflare that a given `cloudflared` is allowed to join the tunnel. Anyone holding it can run a connector for your tunnel. |
 | **Public route** | Tunnel -> Routes | Says "requests for `your-public-hostname` go to `http://nginx:80`". This is where routing is configured. |
-| **Connector container** | `video-tunnel` in `docker-compose.yml` | Runs `cloudflared` and keeps the outbound connection alive. |
-| **Gateway** | `video-proxy` (nginx) | Splits traffic between the backend API and the frontend UI. |
+| **Connector container** | `aether-tunnel` in `docker-compose.yml` | Runs `cloudflared` and keeps the outbound connection alive. |
+| **Gateway** | `aether-proxy` (nginx) | Splits traffic between the backend API and the frontend UI. |
 
 ### Why the public subdomain's DNS record is a "Tunnel" record
 
@@ -66,7 +66,7 @@ The Routes tab offers several route types. Two are easy to confuse:
 ```yaml
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: video-tunnel
+    container_name: aether-tunnel
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
@@ -125,7 +125,7 @@ Only do this if you're replacing the tunnel. Expect about 10-15 minutes of downt
    ```bash
    cd /vagrant
    docker compose up -d --force-recreate cloudflared
-   docker logs video-tunnel --tail 20
+   docker logs aether-tunnel --tail 20
    ```
    Wait for `Registered tunnel connection` lines. The dashboard should then show the tunnel as Healthy.
 
@@ -176,8 +176,8 @@ Once the route works, remove the flag again.
 
 | Symptom | What it means | Fix |
 |---|---|---|
-| Error **1033** | Cloudflare has no live connector for the tunnel | Run `docker logs video-tunnel`. The token is probably wrong, or has a space or line break. |
-| Error **502 / 521** | The tunnel works, but the route can't reach nginx | Check the route URL is `nginx:80`, and that `video-proxy` is running (`docker compose ps`). |
+| Error **1033** | Cloudflare has no live connector for the tunnel | Run `docker logs aether-tunnel`. The token is probably wrong, or has a space or line break. |
+| Error **502 / 521** | The tunnel works, but the route can't reach nginx | Check the route URL is `nginx:80`, and that `aether-proxy` is running (`docker compose ps`). |
 | Name doesn't resolve | The public subdomain's DNS record is missing | Re-save the route, or add a proxied record for your public subdomain pointing at the tunnel. |
 | Continue button stays disabled | The connector isn't connected yet | Repeat step 8. |
 | Site works but Live logs are empty | You're looking at a different tunnel | Check the tunnel name in the dashboard. |
@@ -193,10 +193,10 @@ The private site is a second copy of the whole stack (see the README, "Private S
 Browser -> https://your-private-hostname
   -> Cloudflare edge
     -> outbound tunnel `aether-private`
-      -> video-tunnel-private    (cloudflared container, using PRIVATE_TUNNEL_TOKEN)
-        -> video-proxy-private   (nginx:80, on the private Docker network)
-          -> /api/* -> video-backend-private:8000
-          -> /*     -> served by video-proxy-private itself (the web UI files)
+      -> aether-tunnel-private    (cloudflared container, using PRIVATE_TUNNEL_TOKEN)
+        -> aether-proxy-private   (nginx:80, on the private Docker network)
+          -> /api/* -> aether-backend-private:8000
+          -> /*     -> served by aether-proxy-private itself (the web UI files)
 ```
 
 Why the route URL is `nginx-private:80` and not `nginx:80`: the private connector sits on its own Docker network (`private`), where the only gateway is called `nginx-private`. The public containers and their `nginx` are not visible from there, which is exactly the separation you want.
@@ -214,7 +214,7 @@ Before you start: in `.env` set `COMPOSE_PROFILES=private`, `PRIVATE_MEDIA_DIR` 
 3. **Start the connector first (VM):** the dashboard's Continue button waits for a live connection, so an offline connector blocks the wizard.
    ```bash
    vagrant ssh -c "cd /vagrant && docker compose up -d --build && docker compose restart nginx nginx-private"
-   vagrant ssh -c "docker logs video-tunnel-private --tail 20"
+   vagrant ssh -c "docker logs aether-tunnel-private --tail 20"
    ```
    Wait for `Registered tunnel connection` lines. The dashboard should then show `aether-private` as **Healthy**.
 
@@ -271,8 +271,8 @@ Zero Trust -> Access -> Applications -> Add an application -> **Self-hosted** ->
 
 | Symptom | What it means | Fix |
 |---|---|---|
-| Error **1033** | Cloudflare has no live connector for `aether-private` | `docker logs video-tunnel-private --tail 20`. The token is probably wrong, empty, or has a space or line break; fix `PRIVATE_TUNNEL_TOKEN` and run `docker compose up -d`. |
-| Error **502 / 521** | The tunnel works, but the route can't reach the gateway | Check the route URL is `nginx-private:80` and `docker compose ps` shows `video-proxy-private` running. After a rebuild, run `docker compose restart nginx-private`. |
+| Error **1033** | Cloudflare has no live connector for `aether-private` | `docker logs aether-tunnel-private --tail 20`. The token is probably wrong, empty, or has a space or line break; fix `PRIVATE_TUNNEL_TOKEN` and run `docker compose up -d`. |
+| Error **502 / 521** | The tunnel works, but the route can't reach the gateway | Check the route URL is `nginx-private:80` and `docker compose ps` shows `aether-proxy-private` running. After a rebuild, run `docker compose restart nginx-private`. |
 | Private containers keep restarting | The private folder isn't mounted in the VM | Set `COMPOSE_PROFILES=private` and `PRIVATE_MEDIA_DIR` in `.env`, then `vagrant reload`. |
 | `vagrant reload` stops with "Private site misconfigured" | The two library folders are identical or nested | Choose two separate folders (see the README, "Settings"). |
 | Private site shows the wrong or old thumbnails | The cache belongs to a previous folder | Remove the private containers and the `vagrant_thumbnail-cache-private` volume (README, "Settings"), then `docker compose up -d`. |

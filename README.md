@@ -48,7 +48,7 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 * Nginx intercepts all API and video streaming routes using the `auth_request` module to verify the session at the edge.
 
 ### 5. Cloudflare Tunnel Gateway
-* `cloudflared` runs as a microservice inside Docker (`video-tunnel`).
+* `cloudflared` runs as a microservice inside Docker (`aether-tunnel`).
 * Outbound QUIC/HTTP2 tunnel connects to Cloudflare Edge servers using `TUNNEL_TOKEN`.
 * Bypasses router port forwarding, CGNAT, and home dynamic IP limitations while providing free SSL/HTTPS encryption.
 
@@ -57,7 +57,7 @@ A high-performance, self-hosted video streaming architecture designed for zero-c
 ## 📁 Repository Structure
 
 ```text
-video-streaming/
+aether-stream/
 ├── Vagrantfile               # Ubuntu VM spec (4GB RAM, 4 CPUs); reads the media folders from .env
 ├── bootstrap.sh              # Shell provisioner installing Docker & FFmpeg
 ├── docker-compose.yml        # Public site (always) + private site (profile "private"): Backend, Frontend, Nginx, Cloudflared
@@ -137,9 +137,9 @@ vagrant ssh -c "cd /vagrant && docker compose rm -sf backend backend-private && 
 A second, **fully separate** copy of the site for your own photos and videos: its own library folder, password, backend, frontend, thumbnail cache, Docker network and Cloudflare tunnel, with a darker "Noir red" look (and a PRIVATE tag by the logo). Its services live in the same `docker-compose.yml`, marked with the profile `private`, so **one setting in `.env` turns it on or off**.
 
 ```
-your-private-hostname -> Cloudflare -> video-tunnel-private -> video-proxy-private:80
-   -> /api/* -> video-backend-private:8000   (own password and session cookie, own cache volume)
-   -> /*     -> served by video-proxy-private itself (same UI files + frontend/theme.private.css)
+your-private-hostname -> Cloudflare -> aether-tunnel-private -> aether-proxy-private:80
+   -> /api/* -> aether-backend-private:8000   (own password and session cookie, own cache volume)
+   -> /*     -> served by aether-proxy-private itself (same UI files + frontend/theme.private.css)
    media: /media/private (read-only)  <-  PRIVATE_MEDIA_DIR
 ```
 
@@ -153,8 +153,8 @@ After that it starts with the VM like everything else, and every normal `docker 
 **Check on it**
 ```bash
 docker compose ps                         # all containers, public and private
-docker logs video-backend-private --tail 50
-docker logs video-tunnel-private --tail 20
+docker logs aether-backend-private --tail 50
+docker logs aether-tunnel-private --tail 20
 ```
 
 **Turn it off** (the public site is not touched)
@@ -177,12 +177,12 @@ Current files (`*_v2.jpg` video thumbnails, `*_thumb.jpg` / `*_view.jpg` photo r
 
 To run it by hand at any time (safe while the site is in use):
 ```bash
-docker exec video-backend python -c "import main; main.cleanup_cache()"
+docker exec aether-backend python -c "import main; main.cleanup_cache()"
 
 # from Windows, without opening an SSH session first:
-vagrant ssh -c 'docker exec video-backend python -c "import main; main.cleanup_cache()"'
+vagrant ssh -c 'docker exec aether-backend python -c "import main; main.cleanup_cache()"'
 ```
-It prints what it removed, e.g. `Cache cleanup: removed 1259 legacy thumbnails and 0 stale temp files, freed …`. The automatic run's summary is in `docker logs video-backend`.
+It prints what it removed, e.g. `Cache cleanup: removed 1259 legacy thumbnails and 0 stale temp files, freed …`. The automatic run's summary is in `docker logs aether-backend`.
 
 > [!CAUTION]
 > Don't delete `*_thumb.jpg` by hand: that's the name of the photo grid thumbnails, and the warmer would have to re-read every original from the drive.
@@ -193,10 +193,10 @@ It prints what it removed, e.g. `Cache cleanup: removed 1259 legacy thumbnails a
 docker compose ps
 
 # View Cloudflare Tunnel logs
-docker logs video-tunnel --tail 50
+docker logs aether-tunnel --tail 50
 
 # View Backend API logs
-docker logs video-backend --tail 50
+docker logs aether-backend --tail 50
 ```
 
 ---

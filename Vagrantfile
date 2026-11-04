@@ -69,7 +69,7 @@ Vagrant.configure("2") do |config|
 
   # VM Resource Allocation
   config.vm.provider "virtualbox" do |vb|
-    vb.name = "video-streaming-vm"
+    vb.name = "aether-stream-vm"
     vb.memory = "4096"
     vb.cpus = 4
   end

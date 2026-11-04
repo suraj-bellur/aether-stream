@@ -22,7 +22,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: video-backend
+    container_name: aether-backend
     # Explicit list instead of env_file: the whole .env also holds the private site's
     # password and tunnel token, which this container must never see.
     environment:
@@ -45,7 +45,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: video-frontend
+    container_name: aether-frontend
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
     restart: unless-stopped
@@ -53,7 +53,7 @@ services:
   # Microservice 3: Nginx Reverse Proxy Gateway
   nginx:
     image: nginx:alpine
-    container_name: video-proxy
+    container_name: aether-proxy
     ports:
       - "80:80"
     volumes:
@@ -67,7 +67,7 @@ services:
   # Microservice 4: Cloudflare Tunnel Gateway (Secure remote access for your-public-hostname)
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: video-tunnel
+    container_name: aether-tunnel
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
@@ -85,7 +85,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: video-backend-private
+    container_name: aether-backend-private
     environment:
       <<: *backend-tuning
       VIDEO_DIR: /media/videos
@@ -106,7 +106,7 @@ services:
   nginx-private:
     profiles: ["private"]
     image: nginx:alpine
-    container_name: video-proxy-private
+    container_name: aether-proxy-private
     ports:
       # Port 81 inside the VM; the Vagrantfile forwards it to port 8081 on Windows
       - "81:80"
@@ -125,7 +125,7 @@ services:
   cloudflared-private:
     profiles: ["private"]
     image: cloudflare/cloudflared:latest
-    container_name: video-tunnel-private
+    container_name: aether-tunnel-private
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
