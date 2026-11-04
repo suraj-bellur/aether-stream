@@ -56,7 +56,7 @@ variable "site_password" {
   sensitive   = true
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9._@+=:,~-]{8,}$", var.site_password))
-    error_message = "site_password needs at least 8 characters, using only letters, digits and . _ @ + = : , ~ - (no spaces, quotes, $ or #)."
+    condition     = can(regex("^[A-Za-z0-9._@+=:,~-]+$", var.site_password))
+    error_message = "site_password may only use letters, digits and . _ @ + = : , ~ - (no spaces, quotes, $ or #), and must not be empty."
   }
 }
