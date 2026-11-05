@@ -47,10 +47,20 @@ resource "hcloud_server" "main" {
     smb_username   = data.terraform_remote_state.storage.outputs.public_username
     smb_password   = data.terraform_remote_state.storage.outputs.public_password
     site_password  = var.site_password
+    # The token is only handed to the server when the tunnel is switched on.
+    tunnel_token     = var.enable_tunnel ? var.tunnel_token : ""
+    compose_services = var.enable_tunnel ? "backend frontend nginx cloudflared" : "backend frontend nginx"
   })
 
   labels = {
     project = var.name
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !var.enable_tunnel || var.tunnel_token != ""
+      error_message = "enable_tunnel is true but no tunnel token was found. Create .passwords\\aether-stream-cloudflare-public-tunnel-token."
+    }
   }
 }
 

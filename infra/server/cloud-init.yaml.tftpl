@@ -47,13 +47,13 @@ write_files:
       RequiresMountsFor=/media/videos
 
   # Staged here, then moved to /opt/aether-stream/.env once the repo is cloned.
-  # TUNNEL_TOKEN stays empty until the tunnel cut-over (M6).
+  # TUNNEL_TOKEN is empty unless enable_tunnel is true (M6).
   - path: /var/lib/aether-stream/env
     permissions: "0600"
     owner: root:root
     content: |
       SITE_PASSWORD=${site_password}
-      TUNNEL_TOKEN=
+      TUNNEL_TOKEN=${tunnel_token}
       COMPOSE_PROFILES=
 
   - path: /usr/local/sbin/aether-setup.sh
@@ -87,8 +87,8 @@ write_files:
       log "installing Docker and FFmpeg"
       DOCKER_USER=${deploy_user} bash /opt/aether-stream/bootstrap.sh
 
-      log "starting the site (without the Cloudflare tunnel)"
-      sudo -u ${deploy_user} -H bash -c 'cd /opt/aether-stream && docker compose up -d --build backend frontend nginx'
+      log "starting: ${compose_services}"
+      sudo -u ${deploy_user} -H bash -c 'cd /opt/aether-stream && docker compose up -d --build ${compose_services}'
       sudo -u ${deploy_user} -H docker compose -f /opt/aether-stream/docker-compose.yml ps
 
       touch /var/lib/aether-stream-ready
