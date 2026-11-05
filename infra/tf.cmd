@@ -25,6 +25,12 @@ rem It is only used when enable_tunnel is true; the server stack ignores it othe
 set "TUNNEL_FILE=%~dp0..\.passwords\aether-stream-cloudflare-public-tunnel-token"
 if exist "%TUNNEL_FILE%" set /p TF_VAR_tunnel_token=<"%TUNNEL_FILE%"
 
+rem Optional, private site only (used when enable_private is true): its own password and tunnel token.
+set "PRIVATE_PW_FILE=%~dp0..\.passwords\aether-stream-private-site-password"
+if exist "%PRIVATE_PW_FILE%" set /p TF_VAR_private_site_password=<"%PRIVATE_PW_FILE%"
+set "PRIVATE_TUNNEL_FILE=%~dp0..\.passwords\aether-stream-cloudflare-private-tunnel-token"
+if exist "%PRIVATE_TUNNEL_FILE%" set /p TF_VAR_private_tunnel_token=<"%PRIVATE_TUNNEL_FILE%"
+
 if not defined TF_STACK set "TF_STACK=server"
 terraform -chdir="%~dp0%TF_STACK%" %*
 exit /b %ERRORLEVEL%

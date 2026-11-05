@@ -86,3 +86,45 @@ variable "tunnel_token" {
     error_message = "tunnel_token contains characters a Cloudflare token never has. Check the file for spaces or quotes."
   }
 }
+
+variable "enable_private" {
+  description = <<-EOT
+    Also run the private site (M7): it mounts the private sub-account at /media/private and
+    starts backend-private and nginx-private (and cloudflared-private when enable_tunnel is on).
+    Off by default. Needs the two private password files in .passwords\ (see tf.cmd).
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "private_site_password" {
+  description = <<-EOT
+    Login password of the private site (PRIVATE_SITE_PASSWORD in .env). Must differ from the
+    public one. tf.cmd reads it from .passwords\aether-stream-private-site-password.
+    Same allowed characters as site_password. Ignored while enable_private is false.
+  EOT
+  type        = string
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition     = var.private_site_password == "" || can(regex("^[A-Za-z0-9._@+=:,~-]+$", var.private_site_password))
+    error_message = "private_site_password may only use letters, digits and . _ @ + = : , ~ - (no spaces, quotes, $ or #)."
+  }
+}
+
+variable "private_tunnel_token" {
+  description = <<-EOT
+    Cloudflare tunnel token of the PRIVATE site (a different tunnel from the public one).
+    tf.cmd reads it from .passwords\aether-stream-cloudflare-private-tunnel-token. Only used
+    when enable_private and enable_tunnel are both true.
+  EOT
+  type        = string
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition     = var.private_tunnel_token == "" || can(regex("^[A-Za-z0-9+/=_-]+$", var.private_tunnel_token))
+    error_message = "private_tunnel_token contains characters a Cloudflare token never has. Check the file for spaces or quotes."
+  }
+}

@@ -39,22 +39,33 @@ write_files:
       username=${smb_username}
       password=${smb_password}
 
-  # Docker waits for the mount, so containers never start on an empty folder.
+  # Storage Box login for the read-only private mount (empty unless enable_private is true).
+  - path: /root/.smbcredentials-private
+    permissions: "0600"
+    owner: root:root
+    content: |
+      username=${smb_private_username}
+      password=${smb_private_password}
+
+  # Docker waits for the mounts, so containers never start on an empty folder.
   - path: /etc/systemd/system/docker.service.d/10-wait-for-mount.conf
     permissions: "0644"
     content: |
       [Unit]
-      RequiresMountsFor=/media/videos
+      RequiresMountsFor=${media_mounts}
 
   # Staged here, then moved to /opt/aether-stream/.env once the repo is cloned.
-  # TUNNEL_TOKEN is empty unless enable_tunnel is true (M6).
+  # TUNNEL_TOKEN is empty unless enable_tunnel is true (M6). The PRIVATE_* values and
+  # COMPOSE_PROFILES are empty unless enable_private is true (M7).
   - path: /var/lib/aether-stream/env
     permissions: "0600"
     owner: root:root
     content: |
       SITE_PASSWORD=${site_password}
       TUNNEL_TOKEN=${tunnel_token}
-      COMPOSE_PROFILES=
+      PRIVATE_SITE_PASSWORD=${private_site_pw}
+      PRIVATE_TUNNEL_TOKEN=${private_tunnel_token}
+      COMPOSE_PROFILES=${compose_profiles}
 
   - path: /usr/local/sbin/aether-setup.sh
     permissions: "0755"
@@ -65,18 +76,29 @@ write_files:
       set -euo pipefail
       log() { echo "[aether-setup] $*"; }
 
-      log "mounting the Storage Box at /media/videos"
-      mkdir -p /media/videos
-      grep -q ' /media/videos ' /etc/fstab || echo '//${smb_host}/${smb_username} /media/videos cifs credentials=/root/.smbcredentials-public,ro,file_mode=0444,dir_mode=0555,vers=3.0,_netdev,nofail 0 0' >> /etc/fstab
-      systemctl daemon-reload
-      mounted=0
-      for attempt in 1 2 3 4 5; do
-        if mount /media/videos; then mounted=1; break; fi
-        log "mount attempt $attempt failed, retrying in 10 seconds"
-        sleep 10
-      done
-      if [ "$mounted" != 1 ]; then log "mount failed after 5 attempts"; exit 1; fi
-      findmnt /media/videos
+      # mount_share <mount point> <//host/share> <credentials file>
+      # The first CIFS mount can fail with "No route to host" and then succeed, so retry.
+      mount_share() {
+        local target="$1" share="$2" cred="$3" attempt mounted=0
+        mkdir -p "$target"
+        grep -q " $target " /etc/fstab || echo "$share $target cifs credentials=$cred,ro,file_mode=0444,dir_mode=0555,vers=3.0,_netdev,nofail 0 0" >> /etc/fstab
+        systemctl daemon-reload
+        for attempt in 1 2 3 4 5; do
+          if mount "$target"; then mounted=1; break; fi
+          log "mount of $target failed (attempt $attempt), retrying in 10 seconds"
+          sleep 10
+        done
+        if [ "$mounted" != 1 ]; then log "mount of $target failed after 5 attempts"; exit 1; fi
+        findmnt "$target"
+      }
+
+      log "mounting the public library at /media/videos"
+      mount_share /media/videos '//${smb_host}/${smb_username}' /root/.smbcredentials-public
+
+      if [ "${enable_private}" = "true" ]; then
+        log "mounting the private library at /media/private"
+        mount_share /media/private '//${smb_private_host}/${smb_private_username}' /root/.smbcredentials-private
+      fi
 
       log "cloning ${repo_url} (${repo_branch})"
       git clone --depth 1 --branch '${repo_branch}' '${repo_url}' /opt/aether-stream

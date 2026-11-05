@@ -7,6 +7,23 @@ data "terraform_remote_state" "storage" {
   }
 }
 
+locals {
+  # Which compose services run, and which Storage Box folders must be mounted first.
+  compose_services = join(" ", concat(
+    ["backend", "frontend", "nginx"],
+    var.enable_tunnel ? ["cloudflared"] : [],
+    var.enable_private ? ["backend-private", "nginx-private"] : [],
+    var.enable_private && var.enable_tunnel ? ["cloudflared-private"] : [],
+  ))
+  compose_profiles = var.enable_private ? "private" : ""
+  media_mounts     = var.enable_private ? "/media/videos /media/private" : "/media/videos"
+
+  # Secrets are only handed to the server when the feature that needs them is on.
+  tunnel_token         = var.enable_tunnel ? var.tunnel_token : ""
+  private_site_pw      = var.enable_private ? var.private_site_password : ""
+  private_tunnel_token = var.enable_private && var.enable_tunnel ? var.private_tunnel_token : ""
+}
+
 resource "hcloud_ssh_key" "main" {
   name       = var.name
   public_key = file(pathexpand(var.ssh_public_key_path))
@@ -47,9 +64,18 @@ resource "hcloud_server" "main" {
     smb_username   = data.terraform_remote_state.storage.outputs.public_username
     smb_password   = data.terraform_remote_state.storage.outputs.public_password
     site_password  = var.site_password
-    # The token is only handed to the server when the tunnel is switched on.
-    tunnel_token     = var.enable_tunnel ? var.tunnel_token : ""
-    compose_services = var.enable_tunnel ? "backend frontend nginx cloudflared" : "backend frontend nginx"
+
+    tunnel_token     = local.tunnel_token
+    compose_services = local.compose_services
+    compose_profiles = local.compose_profiles
+    media_mounts     = local.media_mounts
+
+    enable_private       = var.enable_private
+    private_site_pw      = local.private_site_pw
+    private_tunnel_token = local.private_tunnel_token
+    smb_private_host     = var.enable_private ? data.terraform_remote_state.storage.outputs.private_host : ""
+    smb_private_username = var.enable_private ? data.terraform_remote_state.storage.outputs.private_username : ""
+    smb_private_password = var.enable_private ? data.terraform_remote_state.storage.outputs.private_password : ""
   })
 
   labels = {
@@ -60,6 +86,18 @@ resource "hcloud_server" "main" {
     precondition {
       condition     = !var.enable_tunnel || var.tunnel_token != ""
       error_message = "enable_tunnel is true but no tunnel token was found. Create .passwords\\aether-stream-cloudflare-public-tunnel-token."
+    }
+    precondition {
+      condition     = !var.enable_private || var.private_site_password != ""
+      error_message = "enable_private is true but no private site password was found. Create .passwords\\aether-stream-private-site-password."
+    }
+    precondition {
+      condition     = !var.enable_private || var.private_site_password != var.site_password
+      error_message = "The private site password must be different from the public one."
+    }
+    precondition {
+      condition     = !(var.enable_private && var.enable_tunnel) || var.private_tunnel_token != ""
+      error_message = "enable_private and enable_tunnel are both true but no private tunnel token was found. Create .passwords\\aether-stream-cloudflare-private-tunnel-token."
     }
   }
 }
