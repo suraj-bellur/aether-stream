@@ -4,4 +4,4 @@
 # location            = "fsn1"
 # image               = "ubuntu-24.04"
 # ssh_public_key_path = "~/.ssh/id_ed25519.pub"
-# enable_tunnel       = false   # true = serve the public hostname from this server (M6)
+# enable_tunnel       = true    # default true: the public hostname is served from this server (M6)

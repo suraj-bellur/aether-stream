@@ -64,10 +64,11 @@ variable "site_password" {
 variable "enable_tunnel" {
   description = <<-EOT
     Start the Cloudflare tunnel on the server, so the public hostname is served from it (M6).
-    Off by default. While it is on, never run the same tunnel anywhere else (the home VM).
+    On by default. Set it to false (-var="enable_tunnel=false") for an SSH-tunnel-only session.
+    While it is on, never run the same tunnel anywhere else (the home VM).
   EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "tunnel_token" {
