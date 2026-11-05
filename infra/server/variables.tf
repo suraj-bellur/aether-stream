@@ -91,10 +91,11 @@ variable "enable_private" {
   description = <<-EOT
     Also run the private site (M7): it mounts the private sub-account at /media/private and
     starts backend-private and nginx-private (and cloudflared-private when enable_tunnel is on).
-    Off by default. Needs the two private password files in .passwords\ (see tf.cmd).
+    On by default. Needs the two private files in .passwords\ (see tf.cmd). Set it to false
+    (-var="enable_private=false") for a public-only session.
   EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "private_site_password" {
