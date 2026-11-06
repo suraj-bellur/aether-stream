@@ -2,6 +2,10 @@
 rem @group Storage
 rem @help Upload a folder's contents to a library: opens access, rsyncs, always closes access
 rem @args public or private, folder [box folder] [-y]
+rem @opt public or private          which library (required)
+rem @opt a folder on your PC        what to upload (required); put quotes around it if it has spaces
+rem @opt a folder on the box        optional: upload into that sub-folder, for example Holidays/2025/
+rem @opt -y                         skip the question
 rem @raw  .\infra\tfs apply -var="external_access=true"
 rem @raw  .\infra\tfs output -raw public_password | clip
 rem @raw  wsl rsync -avP -e "ssh -p 23" "/mnt/e/<folder>/" <public_user>@<public_host>:./

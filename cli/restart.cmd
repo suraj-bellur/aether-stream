@@ -2,6 +2,8 @@
 rem @group Server
 rem @help Restart the containers, or one of them, without rebuilding the server
 rem @args [service name, for example backend]
+rem @opt (nothing)                  restart every container
+rem @opt a service name             restart only that one, for example: backend
 rem @raw  ssh <target> "cd /opt/aether-stream && docker compose restart"
 rem @raw  ssh <target> "cd /opt/aether-stream && docker compose ps"
 setlocal

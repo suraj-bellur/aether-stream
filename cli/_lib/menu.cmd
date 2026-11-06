@@ -39,7 +39,17 @@ if not defined NAME (
 set "HINT="
 for %%n in ("!NAME!") do set "HINT=!A_%%~n!"
 set "ARGS="
-if defined HINT set /p "ARGS= Arguments for !NAME!: !HINT!  or just Enter: "
+if defined HINT (
+    echo.
+    echo  Options for !NAME!, all optional unless it says required:
+    for /f "tokens=2,*" %%a in ('findstr /b /c:"rem @opt " "%AETHER_CLI%\!NAME!.cmd"') do (
+        set "L=%%b"
+        echo      !L!
+    )
+    echo.
+    echo  Type what you want, separated by spaces, or just press Enter to run it with the defaults.
+    set /p "ARGS= > "
+)
 echo.
 call "%AETHER_ROOT%aether.cmd" !NAME! !ARGS!
 echo.

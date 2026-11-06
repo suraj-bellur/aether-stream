@@ -2,6 +2,7 @@
 rem @group Session
 rem @help Destroy the server, then show what is still billing (the Storage Box stays)
 rem @args [-y]
+rem @opt -y                         skip the 'type yes' question
 rem @raw  .\infra\tf destroy
 rem @raw  Hetzner console, Servers page: check that no server is left
 setlocal

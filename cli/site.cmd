@@ -2,6 +2,9 @@
 rem @group Server
 rem @help Open the site: the public hostname when the tunnel is on, else an SSH tunnel to localhost
 rem @args [private] [local]
+rem @opt (nothing)                  open the public site
+rem @opt private                    open the private site
+rem @opt local                      use an SSH tunnel to localhost, not the public hostname
 rem @raw  start https://<your public hostname>             hostname from .passwords\aether-stream-public-hostname
 rem @raw  ssh -N -L 8080:localhost:80 <target>             local, then open http://localhost:8080
 rem @raw  ssh -N -L 8081:localhost:81 <target>             private local, then open http://localhost:8081

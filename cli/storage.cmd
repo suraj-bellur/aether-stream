@@ -2,6 +2,8 @@
 rem @group Storage
 rem @help Create the Storage Box once, or show it and its sub-accounts
 rem @args create or status
+rem @opt create                     create the Storage Box (once; asks first)
+rem @opt status                     show the box and its sub-accounts
 rem @raw  .\infra\tfs apply                    create: the box, both sub-accounts, generated passwords
 rem @raw  copy infra\storage\terraform.tfstate .passwords\storage.tfstate.bak      right after creating it
 rem @raw  curl -H "Authorization: Bearer <hetzner token>" https://api.hetzner.com/v1/storage_boxes

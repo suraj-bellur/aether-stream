@@ -2,6 +2,8 @@
 rem @group Storage
 rem @help List files in a library: through the server when it runs, else straight from the box
 rem @args public or private [folder]
+rem @opt public or private          which library (required)
+rem @opt a folder name              optional: list inside that folder
 rem @raw  ssh <target> ls -la /media/videos                    server running, public library
 rem @raw  ssh <target> ls -la /media/private                   server running, private library
 rem @raw  .\infra\tfs apply -var="external_access=true"         no server: open access first

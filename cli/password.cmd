@@ -2,6 +2,8 @@
 rem @group Storage
 rem @help Copy a sub-account password to the clipboard, or print it with --show
 rem @args public or private [--show]
+rem @opt public or private          whose password (required); it is copied to the clipboard
+rem @opt --show                     print it on screen instead
 rem @raw  .\infra\tfs output -raw public_password | clip
 rem @raw  .\infra\tfs output -raw private_password                 prints it
 setlocal

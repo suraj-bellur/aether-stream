@@ -2,6 +2,9 @@
 rem @group Server
 rem @help Remove an old SSH host key on Windows and in WSL, after a rebuild or a new box
 rem @args [ip or host, or box]
+rem @opt (nothing)                  forget the current server's old key
+rem @opt box                        forget the Storage Box keys
+rem @opt an IP address              forget that server's old key
 rem @raw  ssh-keygen -R <ip>                                     Windows
 rem @raw  wsl ssh-keygen -R <ip>                                 WSL
 rem @raw  wsl ssh-keygen -R [<public_host>]:23                   box, as used by rsync

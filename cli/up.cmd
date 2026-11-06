@@ -1,7 +1,11 @@
 @echo off
 rem @group Session
 rem @help Create the server and start the site (Terraform shows the plan first)
-rem @args [-y] [-var=enable_private=false] [-var=...]
+rem @args [-y] [-var=name=value]
+rem @opt -y                         skip the 'type yes' question
+rem @opt -var=enable_private=false  no private site, public site only
+rem @opt -var=enable_tunnel=false   no Cloudflare tunnel (open the site with: site local)
+rem @opt -var=name=value            change any other setting from infra\server\variables.tf
 rem @raw  .\infra\tfs output box_host                 the Storage Box must exist first
 rem @raw  .\infra\tf apply                            add -var="enable_private=false" or -var="enable_tunnel=false" for a smaller session
 setlocal

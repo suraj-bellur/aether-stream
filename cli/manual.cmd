@@ -2,6 +2,7 @@
 rem @group Setup
 rem @help Print the raw commands behind every action, to do the same without this CLI
 rem @args [command]
+rem @opt a command name           show only that command, for example: upload
 rem @raw  every command file lists its raw commands in its own  rem @raw  lines
 setlocal DisableDelayedExpansion
 if not "%~1"=="" (
