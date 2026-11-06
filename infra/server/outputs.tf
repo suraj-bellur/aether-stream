@@ -17,3 +17,13 @@ output "private_site_tunnel_command" {
   description = "Run this on your PC, then open http://localhost:8081 (private site, SSH tunnel)."
   value       = var.enable_private ? "ssh -L 8081:localhost:81 ${var.deploy_user}@${hcloud_server.main.ipv4_address}" : "(the private site is switched off: enable_private = false)"
 }
+
+output "tunnel_enabled" {
+  description = "Whether this server runs the Cloudflare tunnel (read by the aether site command)."
+  value       = var.enable_tunnel
+}
+
+output "private_enabled" {
+  description = "Whether this server runs the private site (read by the aether site private command)."
+  value       = var.enable_private
+}
