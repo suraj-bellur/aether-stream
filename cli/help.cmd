@@ -1,12 +1,16 @@
 @echo off
 rem @group Setup
-rem @help List every command
+rem @help List every command, or explain one: .\aether help up
+rem @args [command]
+rem @opt a command name           explain that command: what it does, how to call it, its options
 rem @raw  every command is one file in cli\, its first lines say what it does
 setlocal EnableDelayedExpansion
 call "%AETHER_LIB%\catalog.cmd"
+if not "%~1"=="" goto :one
 echo Usage:  .\aether [command] [arguments]       no command opens the menu
 echo Options for every command:  -y  answers yes to questions,  --explain  shows the raw commands without running them
 echo Raw commands for everything, to work without this CLI:  .\aether manual
+echo One command in detail (what it does, its options):  .\aether help ^<command^>   or   .\aether ^<command^> --help
 set "PAD=                                            "
 for %%g in (%AETHER_GROUPS%) do (
     echo.
@@ -25,4 +29,30 @@ for %%g in (%AETHER_GROUPS%) do (
         )
     )
 )
+exit /b 0
+
+:one
+set "NAME=%~1"
+if not exist "%AETHER_CLI%\%NAME%.cmd" (
+    echo Unknown command: %NAME%
+    echo Run  .\aether help  to see the list.
+    exit /b 1
+)
+set "H=!H_%NAME%!"
+set "A=!A_%NAME%!"
+echo !NAME!: !H!
+echo.
+if defined A (echo Usage:  .\aether !NAME! !A!) else (echo Usage:  .\aether !NAME!)
+echo.
+set "ANYOPT="
+for /f "tokens=2,*" %%a in ('findstr /b /c:"rem @opt " "%AETHER_CLI%\!NAME!.cmd"') do (
+    if not defined ANYOPT echo Options, all optional unless it says required:
+    set "ANYOPT=1"
+    set "L=%%b"
+    echo     !L!
+)
+if not defined ANYOPT echo This command takes no options. Just run it.
+echo.
+echo The raw commands behind it:  .\aether manual !NAME!
+echo What it would run, without running it:  .\aether !NAME! --explain
 exit /b 0

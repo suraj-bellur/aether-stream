@@ -1,7 +1,7 @@
 @echo off
 rem @group Server
 rem @help Remove an old SSH host key on Windows and in WSL, after a rebuild or a new box
-rem @args [ip or host, or box]
+rem @args [ip or box]
 rem @opt (nothing)                  forget the current server's old key
 rem @opt box                        forget the Storage Box keys
 rem @opt an IP address              forget that server's old key
@@ -24,9 +24,16 @@ call :forget "%HOST%"
 exit /b 0
 
 :box
-for %%l in (public private) do (
-    call "%AETHER_LIB%\box.cmd" %%l quiet && call :forget "[%%AETHER_BOX_HOST%%]:23"
-)
+set "ANY="
+for %%l in (public private) do call :boxhost %%l
+if not defined ANY echo No Storage Box in the Terraform state, so there are no box host keys to forget.
+exit /b 0
+
+:boxhost
+call "%AETHER_LIB%\box.cmd" %~1 quiet
+if errorlevel 1 exit /b 0
+set "ANY=1"
+call :forget "[%AETHER_BOX_HOST%]:23"
 exit /b 0
 
 :forget

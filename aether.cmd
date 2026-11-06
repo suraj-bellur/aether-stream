@@ -4,7 +4,8 @@ rem   .\aether                  numbered menu
 rem   .\aether help             every command, with a one-line description
 rem   .\aether manual           the raw commands behind every action (to work without this CLI)
 rem   .\aether <command> [args] run one command, for example  .\aether up
-rem Options for any command:  -y  answers yes to confirmations,  --explain  prints what it would run.
+rem Options for any command:  -y  answers yes to confirmations,  --explain  prints what it would run,
+rem   --help  explains that command's options  (or:  .\aether help <command>).
 rem Each command is one file in cli\. Adding a file adds a command; this file never changes.
 setlocal EnableExtensions DisableDelayedExpansion
 
@@ -32,16 +33,24 @@ set "T=!ALL:* %~1 =!"
 set "T= !T! "
 set "YES="
 set "EXPLAIN="
+set "WANTHELP="
 set "U=!T: -y = !"
 if not "!U!"=="!T!" (set "YES=1" & set "T=!U!")
 set "U=!T: --yes = !"
 if not "!U!"=="!T!" (set "YES=1" & set "T=!U!")
 set "U=!T: --explain = !"
 if not "!U!"=="!T!" (set "EXPLAIN=1" & set "T=!U!")
-endlocal & set "AETHER_YES=%YES%" & set "AETHER_EXPLAIN=%EXPLAIN%" & set "AETHER_ARGS=%T%"
+set "U=!T: --help = !"
+if not "!U!"=="!T!" (set "WANTHELP=1" & set "T=!U!")
+endlocal & set "AETHER_YES=%YES%" & set "AETHER_EXPLAIN=%EXPLAIN%" & set "AETHER_HELP=%WANTHELP%" & set "AETHER_ARGS=%T%"
 
+if defined AETHER_HELP goto :cmdhelp
 if defined AETHER_EXPLAIN goto :explain
 call "%AETHER_CLI%\%AETHER_CMD%.cmd" %AETHER_ARGS%
+goto :done
+
+:cmdhelp
+call "%AETHER_CLI%\help.cmd" %AETHER_CMD%
 goto :done
 
 :explain
