@@ -68,7 +68,7 @@ aether-stream/
 ├── aether.cmd                # Command line for the Hetzner setup: .\aether (menu), .\aether help
 ├── cli/                      # One file per .\aether command (up, down, status, upload, ...)
 ├── infra/                    # Terraform for Hetzner: infra/server (daily) and infra/storage (Storage Box)
-├── docs/                     # Guides: DevOps, Cloudflare, Hetzner deployment, CLI plan, enhancements
+├── docs/                     # Guides (the Cloudflare tunnel setup)
 ├── backend/                  # Microservice 1: FastAPI Video Engine
 │   ├── main.py               # Video scanner, FFmpeg thumbnailer, session auth routes
 │   ├── requirements.txt      # Python dependencies (fastapi, uvicorn)
@@ -88,9 +88,6 @@ aether-stream/
 ---
 
 ## 🛠️ Maintenance & Developer Guide
-
-> [!NOTE]  
-> For a deep dive into the Docker implementation and orchestration, please read the [DEVOPS.md](./docs/DEVOPS.md) guide.
 
 ### Starting the Application
 ```bash
