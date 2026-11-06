@@ -65,7 +65,10 @@ aether-stream/
 ├── .env.example              # Short template of the settings you need - copy it to .env
 ├── .gitignore                # Git exclusion rules
 ├── README.md                 # Developer & Architecture documentation
-├── DEVOPS.md                 # Detailed Infrastructure & DevOps documentation
+├── aether.cmd                # Command line for the Hetzner setup: .\aether (menu), .\aether help
+├── cli/                      # One file per .\aether command (up, down, status, upload, ...)
+├── infra/                    # Terraform for Hetzner: infra/server (daily) and infra/storage (Storage Box)
+├── docs/                     # Guides: DevOps, Cloudflare, Hetzner deployment, CLI plan, enhancements
 ├── backend/                  # Microservice 1: FastAPI Video Engine
 │   ├── main.py               # Video scanner, FFmpeg thumbnailer, session auth routes
 │   ├── requirements.txt      # Python dependencies (fastapi, uvicorn)
@@ -87,7 +90,7 @@ aether-stream/
 ## 🛠️ Maintenance & Developer Guide
 
 > [!NOTE]  
-> For a deep dive into the Docker implementation and orchestration, please read the [DEVOPS.md](./DEVOPS.md) guide.
+> For a deep dive into the Docker implementation and orchestration, please read the [DEVOPS.md](./docs/DEVOPS.md) guide.
 
 ### Starting the Application
 ```bash
@@ -123,7 +126,7 @@ Everything you can change lives in one git-ignored file, **`.env`**. Copy [`.env
 | **Login and sessions** | `SESSION_HOURS` (12), `REMEMBER_DAYS` (30), `MAX_FAILED_LOGINS` (5), `LOGIN_LOCKOUT_MINUTES` (15) | `docker compose up -d` |
 | **Performance** | `LIBRARY_RESCAN_SECONDS` (30), `WARM_MAX_MB_PER_SEC` (12), `PRIVATE_WARM_MAX_MB_PER_SEC` (12) | `docker compose up -d` |
 
-Only the folders, passwords and tokens are needed. Anything you leave out (or leave empty) uses the default shown in brackets. Not in `.env`: the local ports (set in the `Vagrantfile`), the Cloudflare address-to-site mapping (set in the dashboard, see [CLOUDFLARE.md](./CLOUDFLARE.md)) and the private site's colours (top of `frontend/theme.private.css`).
+Only the folders, passwords and tokens are needed. Anything you leave out (or leave empty) uses the default shown in brackets. Not in `.env`: the local ports (set in the `Vagrantfile`), the Cloudflare address-to-site mapping (set in the dashboard, see [CLOUDFLARE.md](./docs/CLOUDFLARE.md)) and the private site's colours (top of `frontend/theme.private.css`).
 
 > [!IMPORTANT]
 > The two library folders must be **different and neither inside the other**. Each site scans its folder recursively, so a private folder such as `E:/Private` inside a public `E:/` would show up on the public site. `vagrant up` / `reload` refuses to continue if the folders are nested or identical.
@@ -144,7 +147,7 @@ your-private-hostname -> Cloudflare -> aether-tunnel-private -> aether-proxy-pri
 ```
 
 **Turn it on**
-1. In `.env`: `COMPOSE_PROFILES=private`, `PRIVATE_MEDIA_DIR=...`, `PRIVATE_SITE_PASSWORD=...` (a different password from the public one), and `PRIVATE_TUNNEL_TOKEN=...` (from **Add the private site** in [CLOUDFLARE.md](./CLOUDFLARE.md)).
+1. In `.env`: `COMPOSE_PROFILES=private`, `PRIVATE_MEDIA_DIR=...`, `PRIVATE_SITE_PASSWORD=...` (a different password from the public one), and `PRIVATE_TUNNEL_TOKEN=...` (from **Add the private site** in [CLOUDFLARE.md](./docs/CLOUDFLARE.md)).
 2. `vagrant reload` (mounts the folder, opens port 8081).
 3. `vagrant ssh -c "cd /vagrant && docker compose up -d --build && docker compose restart nginx nginx-private"`
 
@@ -164,7 +167,7 @@ docker logs aether-tunnel-private --tail 20
    vagrant ssh -c "cd /vagrant && docker compose rm -sf backend-private nginx-private cloudflared-private"
    ```
 3. Optional, to also drop the folder mount and port 8081: `vagrant reload`. To delete its thumbnail cache too: `docker volume rm vagrant_thumbnail-cache-private`.
-4. If you don't want the address any more, remove the tunnel in Cloudflare (**Remove the private site** in [CLOUDFLARE.md](./CLOUDFLARE.md)). To add it again later, repeat **Turn it on**.
+4. If you don't want the address any more, remove the tunnel in Cloudflare (**Remove the private site** in [CLOUDFLARE.md](./docs/CLOUDFLARE.md)). To add it again later, repeat **Turn it on**.
 
 Because the private site keeps its own gateway config, a rule changed in `nginx/nginx.conf` (gzip, streaming, auth) must be mirrored in `nginx/nginx.private.conf`. That is deliberate: the public gateway can never be affected by private-site changes.
 
@@ -207,7 +210,7 @@ Addresses and ports are defined in the `Vagrantfile` (VM address and port forwar
 
 | Site | From outside your network | On your PC | On your local network |
 | :--- | :--- | :--- | :--- |
-| **Public** (always on) | The public hostname set up in Cloudflare (see [CLOUDFLARE.md](./CLOUDFLARE.md)) | The forwarded port in the `Vagrantfile` (`forwarded_port` for guest port 80) | The VM's static address in the `Vagrantfile` (`private_network`), on port 80 |
+| **Public** (always on) | The public hostname set up in Cloudflare (see [CLOUDFLARE.md](./docs/CLOUDFLARE.md)) | The forwarded port in the `Vagrantfile` (`forwarded_port` for guest port 80) | The VM's static address in the `Vagrantfile` (`private_network`), on port 80 |
 | **Private** (only with `COMPOSE_PROFILES=private`) | Its own hostname, set up in Cloudflare; not published in this repository | The forwarded port in the `Vagrantfile` (`forwarded_port` for guest port 81) | The VM's static address, on port 81 |
 
 Each site has its own password (`SITE_PASSWORD` and `PRIVATE_SITE_PASSWORD` in `.env`).
