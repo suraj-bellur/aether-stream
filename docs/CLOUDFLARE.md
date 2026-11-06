@@ -201,7 +201,7 @@ Browser -> https://your-private-hostname
 
 Why the route URL is `nginx-private:80` and not `nginx:80`: the private connector sits on its own Docker network (`private`), where the only gateway is called `nginx-private`. The public containers and their `nginx` are not visible from there, which is exactly the separation you want.
 
-You can also use the private site on your local network, without any of this (see [Access Points](./README.md#-access-points)). The tunnel is only needed for an internet address.
+You can also use the private site on your local network, without any of this (see [Access Points](../README.md#-access-points)). The tunnel is only needed for an internet address.
 
 ### Add the private site (first time, re-adding, or creating a new one)
 
