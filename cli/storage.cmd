@@ -9,7 +9,7 @@ rem @raw  .\infra\tfs apply                    create: the box, both sub-account
 rem @raw  copy infra\storage\terraform.tfstate .passwords\storage.tfstate.bak      right after creating it
 rem @raw  curl -H "Authorization: Bearer <hetzner token>" https://api.hetzner.com/v1/storage_boxes
 rem @raw  curl -H "Authorization: Bearer <hetzner token>" https://api.hetzner.com/v1/storage_boxes/<box id>/subaccounts
-rem @raw  deleting the box is manual on purpose: section 6.5 of docs\DEPLOY-HETZNER-IAC.md
+rem @raw  deleting the box is manual on purpose: .\aether delete prints the steps, section 6.5 of docs\DEPLOY-HETZNER-IAC.md has them too
 setlocal DisableDelayedExpansion
 if /i "%~1"=="create" goto :create
 if /i "%~1"=="status" goto :status
