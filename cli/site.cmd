@@ -41,7 +41,9 @@ if not "%TUN%"=="true" goto :tunnel
 set "HOST_FILE=%AETHER_SECRETS%\aether-stream-%LIB%-hostname"
 if not exist "%HOST_FILE%" (
     echo The Cloudflare tunnel is on, but %HOST_FILE% does not exist.
-    echo Put the %LIB% hostname in it, for example  stream.example.com , or use:  .\aether site %LIB% local
+    echo Create it with one line, your %LIB% address without https, for example  stream.example.com
+    echo   PowerShell:  Set-Content .passwords\aether-stream-%LIB%-hostname "your-address"
+    if "%LIB%"=="private" (echo Or use an SSH tunnel instead:  .\aether site private local) else echo Or use an SSH tunnel instead:  .\aether site local
     exit /b 1
 )
 set /p SITE=<"%HOST_FILE%"
