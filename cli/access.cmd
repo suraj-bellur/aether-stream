@@ -2,6 +2,7 @@
 rem @group Storage
 rem @help Open or close external access, so your PC can or cannot reach the Storage Box
 rem @args <open or close>
+rem @eg open
 rem @opt open                       let your PC reach the Storage Box (for uploads)
 rem @opt close                      shut it again
 rem @raw  .\infra\tfs apply -var="external_access=true"        open

@@ -40,14 +40,24 @@ set "HINT="
 for %%n in ("!NAME!") do set "HINT=!A_%%~n!"
 set "ARGS="
 if defined HINT (
+    set "NEEDS="
+    set "T=!HINT:<=!"
+    if not "!T!"=="!HINT!" set "NEEDS=1"
     echo.
-    echo  Options for !NAME!, all optional unless it says required:
+    echo  Options for !NAME!:
     for /f "tokens=2,*" %%a in ('findstr /b /c:"rem @opt " "%AETHER_CLI%\!NAME!.cmd"') do (
         set "L=%%b"
         echo      !L!
     )
     echo.
-    echo  Type what you want, separated by spaces, or just press Enter to run it with the defaults.
+    set "EG="
+    for %%n in ("!NAME!") do set "EG=!E_%%~n!"
+    if defined EG echo  Example, type it like this:  !EG!
+    if defined NEEDS (
+        echo  Items shown in ^<angle brackets^> are required. Pressing Enter alone will not work.
+    ) else (
+        echo  Everything here is optional. Type what you want, or just press Enter for the normal behaviour.
+    )
     set /p "ARGS= > "
 )
 echo.

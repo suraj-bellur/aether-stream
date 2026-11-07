@@ -2,6 +2,7 @@
 rem @group Server
 rem @help Run one command on the server, for example  .\aether exec df -h
 rem @args <command>
+rem @eg df -h
 rem @opt any command             what to run on the server, for example: df -h
 rem @raw  ssh <target> <command>
 setlocal

@@ -46,12 +46,16 @@ if defined A (echo Usage:  .\aether !NAME! !A!) else (echo Usage:  .\aether !NAM
 echo.
 set "ANYOPT="
 for /f "tokens=2,*" %%a in ('findstr /b /c:"rem @opt " "%AETHER_CLI%\!NAME!.cmd"') do (
-    if not defined ANYOPT echo Options, all optional unless it says required:
+    if not defined ANYOPT echo Options:
     set "ANYOPT=1"
     set "L=%%b"
     echo     !L!
 )
 if not defined ANYOPT echo This command takes no options. Just run it.
+set "EG=!E_%NAME%!"
+if defined EG echo.& echo Example:  .\aether !NAME! !EG!
+set "T=!A:<=!"
+if not "!T!"=="!A!" echo.& echo Items shown in ^<angle brackets^> are required. The others are optional.
 echo.
 echo The raw commands behind it:  .\aether manual !NAME!
 echo What it would run, without running it:  .\aether !NAME! --explain

@@ -2,6 +2,7 @@
 rem @group Storage
 rem @help List files in a library: through the server when it runs, else straight from the box
 rem @args <public or private> [folder] [-y]
+rem @eg public
 rem @opt public or private          which library (required)
 rem @opt a folder name              optional: list inside that folder
 rem @opt -y                         skip the question when it has to open the box first
