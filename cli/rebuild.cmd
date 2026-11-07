@@ -12,7 +12,9 @@ rem @raw  for a code change only, .\aether update is quicker
 setlocal
 call "%AETHER_LIB%\confirm.cmd" "Destroy the server and build a new one? Takes 5 to 10 minutes."
 if errorlevel 1 exit /b 1
+call "%AETHER_LIB%\sessionlog.cmd" snapshot
 call "%AETHER_INFRA%\tf.cmd" destroy -auto-approve
 if errorlevel 1 exit /b 1
+call "%AETHER_LIB%\sessionlog.cmd" commit
 call "%AETHER_CLI%\up.cmd" %*
 exit /b %ERRORLEVEL%

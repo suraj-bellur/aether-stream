@@ -8,8 +8,10 @@ rem @raw  Hetzner console, Servers page: check that no server is left
 setlocal
 set "AUTO="
 if defined AETHER_YES set "AUTO=-auto-approve"
+call "%AETHER_LIB%\sessionlog.cmd" snapshot
 call "%AETHER_INFRA%\tf.cmd" destroy %AUTO% %*
 if errorlevel 1 exit /b 1
+call "%AETHER_LIB%\sessionlog.cmd" commit
 echo.
 call "%AETHER_CLI%\status.cmd"
 exit /b 0
