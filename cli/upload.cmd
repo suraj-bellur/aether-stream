@@ -5,6 +5,7 @@ rem @args <public or private> <folder> [box folder] [-y]
 rem @eg public E:\Movies
 rem @opt public or private          which library (required)
 rem @opt a folder on your PC        what to upload (required); put quotes around it if it has spaces
+rem @opt                            a whole drive such as E:\ works too, its Windows system folders are skipped
 rem @opt a folder on the box        optional: upload into that sub-folder, for example Holidays/2025/
 rem @opt -y                         skip the question
 rem @raw  .\infra\tfs apply -var="external_access=true"
@@ -26,6 +27,10 @@ if not exist "%FOLDER%\" (
     echo Folder not found: %FOLDER%
     exit /b 1
 )
+rem A trailing backslash would be read as an escaped quote (E:\ became E:"), and a bare drive (E:) means
+rem "the current folder on E:". Forward slashes are safe, so normalise both before converting the path.
+if "%FOLDER:~-1%"=="\" set "FOLDER=%FOLDER:~0,-1%/"
+if "%FOLDER:~-1%"==":" set "FOLDER=%FOLDER%/"
 set "SRC="
 for /f "usebackq delims=" %%p in (`wsl -e wslpath -a "%FOLDER%"`) do set "SRC=%%p"
 if not defined SRC (
@@ -43,7 +48,7 @@ if errorlevel 1 exit /b 1
 call "%AETHER_LIB%\access.cmd" open
 if errorlevel 1 exit /b 1
 call "%AETHER_LIB%\clipboard.cmd" %LIB%
-wsl -e rsync -avP -e "ssh -p 23 -o StrictHostKeyChecking=accept-new" "%SRC%/" "%AETHER_BOX_USER%@%AETHER_BOX_HOST%:%DEST%"
+wsl -e rsync -avP "--exclude=$RECYCLE.BIN" "--exclude=System Volume Information" -e "ssh -p 23 -o StrictHostKeyChecking=accept-new" "%SRC%/" "%AETHER_BOX_USER%@%AETHER_BOX_HOST%:%DEST%"
 set "RC=%ERRORLEVEL%"
 call "%AETHER_LIB%\clipboard.cmd" clear
 call "%AETHER_LIB%\access.cmd" close
